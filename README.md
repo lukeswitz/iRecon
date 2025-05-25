@@ -123,16 +123,10 @@ DEFAULT_WORDLISTS = {
 timeout=30  # ← Adjust scan command timeout
 ```
 
-## Threat Advisory
+## Compliance
 
 🚨 **Legal Imperative**  
-CyScan shall only be deployed against systems with explicit written authorization.  
-Unauthorized network intrusion violates international cyber laws.
-
-```bash
-# Compliance Check
-echo "By executing CyScan, you affirm legal right to test the target system"
-```
+CyScan shall only be deployed against systems with explicit written authorization. Unauthorized network intrusion violates international cyber laws. By executing CyScan, you affirm legal right to test the target system
 
 ## QRG (Quick Reference Guide)
 
