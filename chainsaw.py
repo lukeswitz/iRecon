@@ -427,7 +427,7 @@ ENHANCED_SERVICE_CHECKS = {
     
     22: {
         'name': 'SSH',
-        'risk_base': 4.0,
+        'risk_base': 5.0,
         'auth': 'ssh {user}@{ip} -o PasswordAuthentication=yes -o ConnectTimeout=10',
         'enum': [
             'ssh -v {user}@{ip} -o ConnectTimeout=10',
@@ -515,7 +515,7 @@ ENHANCED_SERVICE_CHECKS = {
     # Remote access
     3389: {
         'name': 'RDP',
-        'risk_base': 7.5,
+        'risk_base': 8.5,
         'enum': [
             'nmap --script=rdp-* -p 3389 {ip}',
             'crackmapexec rdp {ip} -u {user} -p {pass} --timeout 10'
@@ -684,18 +684,18 @@ class CyberScanner:
     def banner(self):
         banner_text = f"""
     {chr(27)}[91m
-                        ██████╗ ██╗  ██╗ █████╗ ██╗███╗   ██╗███████╗ █████╗ ██╗    ██╗
-                        ██╔════╝██║  ██║██╔══██╗██║████╗  ██║██╔════╝██╔══██╗██║    ██║
-                        ██║     ███████║███████║██║██╔██╗ ██║███████╗███████║██║ █╗ ██║
-                        ██║     ██╔══██║██╔══██║██║██║╚██╗██║╚════██║██╔══██║██║███╗██║
-                        ╚██████╗██║  ██║██║  ██║██║██║ ╚████║███████║██║  ██║╚███╔███╔╝
-                        ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝ 
+        ██████╗ ██╗  ██╗ █████╗ ██╗███╗   ██╗███████╗ █████╗ ██╗    ██╗
+        ██╔════╝██║  ██║██╔══██╗██║████╗  ██║██╔════╝██╔══██╗██║    ██║
+        ██║     ███████║███████║██║██╔██╗ ██║███████╗███████║██║ █╗ ██║
+        ██║     ██╔══██║██╔══██║██║██║╚██╗██║╚════██║██╔══██║██║███╗██║
+        ╚██████╗██║  ██║██║  ██║██║██║ ╚████║███████║██║  ██║╚███╔███╔╝
+        ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝ 
 
-                              ⚡ AUTOMATED NETWORK TESTING FRAMEWORK ⚡
+              ⚡ AUTOMATED NETWORK TESTING FRAMEWORK ⚡
     {chr(27)}[0m{chr(27)}[93m
-                            ────────────────────────────────────────
-                              [!] TARGET ACQUIRED - INITIATING SCAN
-                            ────────────────────────────────────────
+                ────────────────────────────────────────
+                  [!] TARGET ACQUIRED - INITIATING SCAN
+                ────────────────────────────────────────
     {chr(27)}[0m
             """
         print(banner_text)
@@ -1282,21 +1282,25 @@ class CyberScanner:
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = {}
             for port, service in open_ports:
-                future = executor.submit(
-                    self.service_checks_enhanced, 
-                    self.args.ip, port, self.args.user, self.args.password, replacements
-                )
-                futures[port] = future
-            
+              # Add port to replacements for each service
+              port_replacements = replacements.copy()
+              port_replacements['port'] = port
+              
+              future = executor.submit(
+                self.service_checks_enhanced, 
+                self.args.ip, port, self.args.user, self.args.password, port_replacements
+              )
+              futures[port] = future
+              
             for port, future in futures.items():
-                try:
-                    self.results[port] = future.result(timeout=120)
-                    self.risk_scores[port] = self.calculate_risk_score(port, self.results[port])
-                    print(f"[+] Completed scan for port {port} (Risk: {self.risk_scores[port]:.1f})")
-                except Exception as e:
-                    print(f"[!] Error scanning port {port}: {str(e)}")
-                    self.results[port] = []
-                    self.risk_scores[port] = 0.0
+              try:
+                self.results[port] = future.result(timeout=120)
+                self.risk_scores[port] = self.calculate_risk_score(port, self.results[port])
+                print(f"[+] Completed scan for port {port} (Risk: {self.risk_scores[port]:.1f})")
+              except Exception as e:
+                print(f"[!] Error scanning port {port}: {str(e)}")
+                self.results[port] = []
+                self.risk_scores[port] = 0.0
         
         # Analyze attack paths
         self.attack_paths = self.analyze_attack_paths(self.results)
@@ -1305,7 +1309,7 @@ class CyberScanner:
         # Generate report
         report = self.generate_enhanced_report(self.results, self.args.ip)
         timestamp = datetime.now().strftime('%Y%m%d%H%M')
-        filename = f"cyscan_{self.args.ip}_{timestamp}.html"
+        filename = f"chainsasw_{self.args.ip}_{timestamp}.html"
         
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(report)
