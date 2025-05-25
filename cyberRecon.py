@@ -181,7 +181,7 @@ TERMINAL_CSS = f"""
     }}
     
     .terminal-header::before {{
-        content: "▲▼▲▼ CYBERSCAN NEURAL NETWORK ▲▼▲▼";
+        content: "▲▼▲▼ CYBERSCAN NETWORK ANALYSIS ▲▼▲▼";
         position: absolute;
         top: -20px;
         left: 30px;
@@ -513,7 +513,7 @@ INTEGRATION_COMMANDS = {
     'slack_notify': 'curl -X POST -H "Content-type: application/json" --data \'{"text":"🔥 CyberScan complete for {ip} - {critical_count} critical findings"}\' {slack_webhook}',
     'jira_ticket': 'curl -X POST -u {jira_user}:{jira_token} -H "Content-Type: application/json" --data \'{"fields": {"project": {"key": "SEC"}, "summary": "Security vulnerabilities found on {ip}", "description": "Automated scan found {total_issues} issues"}}\' {jira_url}/rest/api/2/issue/',
     'teams_notify': 'curl -X POST -H "Content-Type: application/json" --data \'{"text": "CyberScan Alert: {critical_count} critical vulnerabilities found on {ip}"}\' {teams_webhook}',
-    'discord_notify': 'curl -X POST -H "Content-Type: application/json" --data \'{"embeds": [{"title": "🔥 CyberScan Alert", "description": "Target: {ip}\\nCritical Issues: {critical_count}\\nTotal Issues: {total_issues}", "color": 15548997, "footer": {"text": "CyberScan Neural Network"}}]}\' {discord_webhook}',
+    'discord_notify': 'curl -X POST -H "Content-Type: application/json" --data \'{"embeds": [{"title": "🔥 CyberScan Alert", "description": "Target: {ip}\\nCritical Issues: {critical_count}\\nTotal Issues: {total_issues}", "color": 15548997, "footer": {"text": "CyberScan Network Analysis"}}]}\' {discord_webhook}',
     'ifttt_trigger': 'curl -X POST -H "Content-Type: application/json" --data \'{"value1": "{ip}", "value2": "{critical_count}", "value3": "{total_issues}"}\' https://maker.ifttt.com/trigger/{ifttt_event}/with/key/{ifttt_key}'
 }
 
@@ -855,7 +855,7 @@ class CyberScanner:
         <!DOCTYPE html>
         <html>
         <head>
-          <title>CYBERSCAN NEURAL ANALYSIS :: {ip}</title>
+          <title>CYBERSCAN NETWORK ANALYSIS :: {ip}</title>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           {TERMINAL_CSS}
@@ -863,7 +863,7 @@ class CyberScanner:
         <body>
           <div class="scan-line"></div>
           <div class="terminal-header">
-            <h1 class="glitch">// CYBERSCAN NEURAL ANALYSIS</h1>
+            <h1 class="glitch">// CYBERSCAN NETWORK ANALYSIS</h1>
             <h2>TARGET ACQUIRED: {ip}</h2>
             <h3>{datetime.now().strftime('[%Y-%m-%d %H:%M:%S UTC]')}</h3>
             <div style="margin-top: 1rem;">
@@ -1082,7 +1082,7 @@ class CyberScanner:
             'passwords': self.args.passwords or DEFAULT_WORDLISTS['passwords']
         }
 
-        print(f"[*] Initializing neural network scan on {self.args.ip}...")
+        print(f"[*] Initializing network scan on {self.args.ip}...")
         print(f"[*] Evasion mode: {'ENABLED' if self.args.evasion else 'DISABLED'}")
         print(f"[*] API testing: {'ENABLED' if self.args.api_test else 'DISABLED'}")
         
@@ -1129,12 +1129,12 @@ class CyberScanner:
         # Generate report
         report = self.generate_enhanced_report(self.results, self.args.ip)
         timestamp = datetime.now().strftime('%Y%m%d%H%M')
-        filename = f"cyberscan_neural_{self.args.ip}_{timestamp}.html"
+        filename = f"cyscan_{self.args.ip}_{timestamp}.html"
         
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(report)
         
-        print(f"[+] Neural analysis complete: {filename}")
+        print(f"[+] Network analysis complete: {filename}")
         
         # Send notifications
         self.send_notifications(self.args.ip, self.results)
@@ -1165,7 +1165,7 @@ done
 
 def main():
     parser = argparse.ArgumentParser(
-        description='CyberScan Neural Network Penetration Testing Tool',
+        description='CyberScan Network Penetration Testing Tool',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
