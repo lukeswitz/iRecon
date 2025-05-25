@@ -1391,11 +1391,6 @@ class CyberScanner:
           IMMEDIATE THREATS:
           {self.format_attack_paths()}
           
-          RECOMMENDED ACTIONS:
-          1. Immediate patching required for critical findings
-          2. Implement network segmentation
-          3. Enable monitoring for suspicious activities
-          4. Review access controls and authentication mechanisms
           """
         
         return exec_summary
@@ -1690,13 +1685,11 @@ class CyberScanner:
         }
 
         print(f"[*] Initializing network scan on {self.args.ip}...")
-        print(f"[*] Evasion mode: {'ENABLED' if self.args.evasion else 'DISABLED'}")
-        print(f"[*] API testing: {'ENABLED' if self.args.api_test else 'DISABLED'}")
-        
+      
         # Enhanced nmap scanning
-        nmap_opts = "-T3 --top-ports 1000"  # Changed from -p-
+        nmap_opts = "-T4 --top-ports 1000"
         if self.args.evasion:
-            nmap_opts = "-Pn -T1 --top-ports 1000"  # Changed from -p- -f
+            nmap_opts = "-Pn -T1 --top-ports 1000"
         
         nmap_cmd = f"nmap {nmap_opts} {self.args.ip}"
         print(f"[*] Running: {nmap_cmd}")
