@@ -3,17 +3,12 @@ import argparse
 import subprocess
 import os
 import webbrowser
-import re
 import json
-import asyncio
-import aiohttp
 from html import escape
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import random
 import time
-import threading
-from pathlib import Path
 import platform
 import shutil
 
