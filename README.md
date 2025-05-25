@@ -35,7 +35,7 @@ python3 chainsaw.py site.com --integrations discord_notify --discord-webhook "UR
 ```bash
 --evasion - Stealth techniques
 --api-test - API endpoint testing
---continuous - 24/7 monitoring
+--continuous - Run and make an hourly monitoring script for later use
 --export-json - JSON output
 --integrations - Slack/Discord/Teams/IFTTT/Jira notifications
 ```
@@ -49,13 +49,13 @@ python3 chainsaw.py site.com --integrations discord_notify --discord-webhook "UR
 - Multi-platform notifications and SIEM integration
 
 
+
 ## Output
 
 - Interactive HTML reports with animations
 - JSON export for automation/SIEM
-- Real-time console progress
 - Executive summaries for management
-
+- Create a script to run as a continuous monitor using 
 ---
 
 # iRecon
