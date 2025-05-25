@@ -427,7 +427,7 @@ ENHANCED_SERVICE_CHECKS = {
     
     22: {
         'name': 'SSH',
-        'risk_base': 5.0,
+        'risk_base': 4.0,
         'auth': 'ssh {user}@{ip} -o PasswordAuthentication=yes -o ConnectTimeout=10',
         'enum': [
             'ssh -v {user}@{ip} -o ConnectTimeout=10',
@@ -494,7 +494,7 @@ ENHANCED_SERVICE_CHECKS = {
     # SMB/NetBIOS
     445: {
         'name': 'SMB',
-        'risk_base': 9.0,
+        'risk_base': 7.0,
         'anon': [
             'smbclient -L //{ip}/ -N --timeout=10',
             'crackmapexec smb {ip} --shares -u "" -p "" --timeout 10',
