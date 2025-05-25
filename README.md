@@ -1,4 +1,157 @@
-# iRecon 🧠⚡
+# Automated Scan Tools
+
+1. [iRecon](#irecon) nmap report
+2. [CyScan](#cyscan) scan & enumeration
+
+
+# CyScan
+
+A penetration testing automation tool with reporting, comprehensive service enumeration, and smart fallback mechanisms.
+
+## Features
+
+- 🔍 **Full Port Enumeration** with Nmap
+- 🛡 **Service-Specific Checks** for 15+ protocols
+- 🔄 **Smart Fallback Mechanisms** for failed connections
+- 💻 **CrackMapExec Integration** for credential testing
+- 📊 **Cyberpunk HTML Reports** with interactive elements
+- ⚡ **Concurrent Execution** for faster scanning
+
+## Installation
+
+### Dependencies
+
+**Core Requirements:**
+```bash
+# Kali Linux
+sudo apt update && sudo apt install -y \
+  nmap \
+  crackmapexec \
+  gobuster \
+  feroxbuster \
+  smbclient \
+  evil-winrm \
+  snmp \
+  ldap-utils \
+  mysql-client \
+  postgresql-client \
+  xfreerdp \
+  socat
+
+# Impacket (Python)
+git clone https://github.com/SecureAuthCorp/impacket.git
+cd impacket && pip install . && cd ..
+
+# Python Packages
+pip install concurrent.futures html
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install -y \
+  python3-pip \
+  libssl-dev \
+  libffi-dev \
+  python3-dev \
+  build-essential
+```
+
+### Get CyberScan
+```bash
+git clone https://github.com/lukeswitz/iRecon.git
+cd iRecon
+chmod +x cyberscan.py
+```
+
+## Usage
+
+### Basic Scan
+```bash
+./cyberscan.py 10.0.0.1
+```
+
+### Authenticated Scan
+```bash
+./cyberscan.py 10.0.0.1 -u admin -p 'P@ssw0rd!'
+```
+
+### Custom Wordlist
+```bash
+./cyberscan.py 10.0.0.1 --wordlist ~/custom_wordlist.txt
+```
+
+### Output
+- Report saved as `cyberscan_<IP>_<TIMESTAMP>.html`
+- Automatically opens in default browser
+
+## Configuration
+
+### Tool Paths (Edit script directly)
+```python
+TOOL_PATHS = {
+    'nmap': '/usr/bin/nmap',
+    'cme': '/usr/bin/crackmapexec',
+    'gobuster': '/usr/bin/gobuster',
+    'feroxbuster': '/usr/bin/feroxbuster',
+    'impacket': '/opt/impacket/examples/'
+}
+```
+
+### Service Checks
+Modify `SERVICE_CHECKS` dictionary to:
+- Add new service checks
+- Customize enumeration commands
+- Adjust timeouts (default: 30s)
+
+## Features Breakdown
+
+### Service Coverage
+| Port  | Service       | Checks Performed                      |
+|-------|---------------|----------------------------------------|
+| 21    | FTP           | Anonymous auth, Nmap scripts           |
+| 22    | SSH           | Credential auth, Security checks       |
+| 80    | HTTP          | Directory busting, Vulnerability scan  |
+| 443   | HTTPS         | SSL checks, Web enumeration            |
+| 445   | SMB           | Share enumeration, CrackMapExec        |
+| 3389  | RDP           | Security audit, Client testing         |
+| 5985  | WinRM         | PowerShell access, Alternative methods |
+
+### Fallback Mechanisms
+- **WinRM** → WMIExec, NTLM auth
+- **SMB** → RPC client, Impacket tools
+- **HTTP** → Alternate directory busting
+- **Generic** → SSL/TLS detection, raw socket
+
+## FAQ
+
+**Q: Tools not found?**  
+A: Verify paths in `TOOL_PATHS` and install missing packages
+
+**Q: Scan taking too long?**  
+A: Adjust `timeout` in `run_cmd()` or reduce thread count
+
+**Q: Report not generating?**  
+A: Check write permissions and HTML escaping
+
+**Q: Commands failing?**  
+A: Ensure all dependencies are installed and in PATH
+
+## Disclaimer
+
+⚠️ **Use Responsibly**  
+This tool should only be used on systems you own or have explicit permission to test. Unauthorized scanning is illegal.
+
+```bash
+# Legal Notice
+echo "By using CyberScan, you agree to use it only for lawful purposes"
+```
+
+---
+
+**Happy (Ethical) Hacking!** 🎮🔓
+
+
+# iRecon
 
 iRecon is an automated Nmap-based reconnaissance script designed to speed up the initial enumeration phase during CTFs or real-world pentests. It's especially useful for platforms like Hack The Box, where time and efficiency are key.
 
