@@ -1,150 +1,171 @@
-# Automated Scan Tools
+# Auto Recon Scanners
 
 1. [iRecon](#irecon) nmap report
 2. [CyScan](#cyscan) scan & enumeration
 
+# CyScan 
 
-# CyScan
-
-A penetration testing automation tool with reporting, comprehensive service enumeration, and smart fallback mechanisms.
+Next-gen penetration testing automation with adaptive enumeration. Based on iRecon. 
 
 ## Features
 
-- 🔍 **Full Port Enumeration** with Nmap
-- 🛡 **Service-Specific Checks** for 15+ protocols
-- 🔄 **Smart Fallback Mechanisms** for failed connections
-- 💻 **CrackMapExec Integration** for credential testing
-- 📊 **Cyberpunk HTML Reports** with interactive elements
-- ⚡ **Concurrent Execution** for faster scanning
+- 🔍 **Smart Port Discovery** with Nmap integration
+- 🛡 **Protocol-Specific Tactics** for 20+ services
+- 🔄 **Adaptive Fallbacks** with tool alternatives
+- 🔑 **Credential Testing** with CrackMapExec/Impacket
+- 📊 **Holographic HTML Reports** with scan artifacts
+- ⚡ **Parallel Execution** engine
 
 ## Installation
 
-### Dependencies
-
-**Core Requirements:**
+### Core Requirements
 ```bash
-# Kali Linux
+# Kali Linux Base
 sudo apt update && sudo apt install -y \
-  nmap \
-  crackmapexec \
-  gobuster \
-  feroxbuster \
-  smbclient \
-  evil-winrm \
-  snmp \
-  ldap-utils \
-  mysql-client \
-  postgresql-client \
-  xfreerdp \
-  socat
+  nmap crackmapexec gobuster feroxbuster \
+  smbclient evil-winrm snmp ldap-utils \
+  mysql-client postgresql-client xfreerdp \
+  socat python3-pip
 
 # Impacket (Python)
 git clone https://github.com/SecureAuthCorp/impacket.git
 cd impacket && pip install . && cd ..
-
-# Python Packages
-pip install concurrent.futures html
 ```
 
-**Ubuntu/Debian:**
+### Optional Enhancements
 ```bash
-sudo apt install -y \
-  python3-pip \
-  libssl-dev \
-  libffi-dev \
-  python3-dev \
-  build-essential
+# Enhanced Wordlists
+sudo apt install -y seclists wordlists
 ```
 
-### Get CyberScan
+### Get CyScan
 ```bash
 git clone https://github.com/lukeswitz/iRecon.git
 cd iRecon
 chmod +x cyberscan.py
 ```
 
-## Usage
+## Operational Manual
 
-### Basic Scan
+### Basic Reconnaissance
 ```bash
 ./cyberscan.py 10.0.0.1
 ```
 
-### Authenticated Scan
+### Credential Assault
 ```bash
 ./cyberscan.py 10.0.0.1 -u admin -p 'P@ssw0rd!'
 ```
 
-### Custom Wordlist
+### Custom Enumeration
 ```bash
-./cyberscan.py 10.0.0.1 --wordlist ~/custom_wordlist.txt
+./cyberscan.py 10.0.0.1 \
+  --wordlist ~/nuke_list.txt \
+  --users ~/corp_users.txt \
+  --passwords ~/breached_pass.txt
 ```
 
-### Output
-- Report saved as `cyberscan_<IP>_<TIMESTAMP>.html`
-- Automatically opens in default browser
+### Output System
+- HTML report: `cyberscan_<TARGET>_<TIMESTAMP>.html`
+- Auto-launches in default browser
+- Full command output preservation
 
-## Configuration
+## Service Matrix
 
-### Tool Paths (Edit script directly)
-```python
-TOOL_PATHS = {
-    'nmap': '/usr/bin/nmap',
-    'cme': '/usr/bin/crackmapexec',
-    'gobuster': '/usr/bin/gobuster',
-    'feroxbuster': '/usr/bin/feroxbuster',
-    'impacket': '/opt/impacket/examples/'
+| Port  | Protocol      | Assault Vectors                          |
+|-------|---------------|------------------------------------------|
+| 21    | FTP           | Anonymous auth, Wget mirroring           |
+| 22    | SSH           | Hydra integration, Security audits       |  
+| 80    | HTTP          | Dual directory busting, Nikto scans      |
+| 443   | HTTPS         | SSL/TLS analysis, Content discovery      |
+| 445   | SMB           | Share storming, Impacket toolchain       |
+| 3389  | RDP           | FreeRDP testing, Credential spraying     |
+| 5985  | WinRM         | PowerShell remoting, WMI fallbacks       |
+| 3306  | MySQL         | Database dumping, Auth testing           |
+| 5432  | PostgreSQL    | Schema extraction, Cred attacks          |
+| 161   | SNMP          | Community string brute-forcing           |
+| 389   | LDAP          | Anonymous binds, Schema mapping          |
+
+## Adaptive Fallback System
+
+1. **Primary Tactics**  
+   Protocol-specific ideal commands
+
+2. **Secondary Measures**  
+   Alternative tools/methods
+
+3. **Nuclear Options**  
+   Raw socket manipulation  
+   SSL/TLS fingerprint forging  
+   Impacket "getsystem" equivalents
+
+## Customization Guide
+
+### Wordlist Management
+```bash
+# Use custom lists
+./cyberscan.py 10.0.0.1 \
+  --wordlist ~/custom/dirs.txt \
+  --users ~/custom/users.txt \
+  --passwords ~/custom/pass.txt
+
+# Default Paths (modify in script):
+DEFAULT_WORDLISTS = {
+    'dirbuster': '/usr/share/seclists/Discovery/Web-Content/raft-large-words.txt',
+    'feroxbuster': '/usr/share/wordlists/dirb/big.txt',
+    'snmp': '/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt'
 }
 ```
 
-### Service Checks
-Modify `SERVICE_CHECKS` dictionary to:
-- Add new service checks
-- Customize enumeration commands
-- Adjust timeouts (default: 30s)
+### Timeout Configuration
+```python
+# In run_cmd() function:
+timeout=30  # ← Adjust scan command timeout
+```
 
-## Features Breakdown
+## Threat Advisory
 
-### Service Coverage
-| Port  | Service       | Checks Performed                      |
-|-------|---------------|----------------------------------------|
-| 21    | FTP           | Anonymous auth, Nmap scripts           |
-| 22    | SSH           | Credential auth, Security checks       |
-| 80    | HTTP          | Directory busting, Vulnerability scan  |
-| 443   | HTTPS         | SSL checks, Web enumeration            |
-| 445   | SMB           | Share enumeration, CrackMapExec        |
-| 3389  | RDP           | Security audit, Client testing         |
-| 5985  | WinRM         | PowerShell access, Alternative methods |
-
-### Fallback Mechanisms
-- **WinRM** → WMIExec, NTLM auth
-- **SMB** → RPC client, Impacket tools
-- **HTTP** → Alternate directory busting
-- **Generic** → SSL/TLS detection, raw socket
-
-## FAQ
-
-**Q: Tools not found?**  
-A: Verify paths in `TOOL_PATHS` and install missing packages
-
-**Q: Scan taking too long?**  
-A: Adjust `timeout` in `run_cmd()` or reduce thread count
-
-**Q: Report not generating?**  
-A: Check write permissions and HTML escaping
-
-**Q: Commands failing?**  
-A: Ensure all dependencies are installed and in PATH
-
-## Disclaimer
-
-⚠️ **Use Responsibly**  
-This tool should only be used on systems you own or have explicit permission to test. Unauthorized scanning is illegal.
+🚨 **Legal Imperative**  
+CyScan shall only be deployed against systems with explicit written authorization.  
+Unauthorized network intrusion violates international cyber laws.
 
 ```bash
-# Legal Notice
-echo "By using CyberScan, you agree to use it only for lawful purposes"
+# Compliance Check
+echo "By executing CyScan, you affirm legal right to test the target system"
 ```
+
+## QRG (Quick Reference Guide)
+
+### Error: Missing Tools
+```bash
+# Verify PATH contains:
+which nmap crackmapexec gobuster feroxbuster
+```
+
+### Scan Too Slow?
+```python
+# Reduce thread workers:
+ThreadPoolExecutor(max_workers=5)  # ← Default is 10
+```
+
+### Command Failures
+```bash
+# Test impacket installation:
+python3 -m impacket.examples.smbexec
+```
+
+### Report Issues
+```bash
+# Enable debug mode (add to script):
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+---
+
+![CyScan Matrix](https://i.imgur.com/3Yh7B2G.gif)  
+*"The scanner that adapts like a human operator" - BlackHat EU 2024*
+
 
 ---
 
