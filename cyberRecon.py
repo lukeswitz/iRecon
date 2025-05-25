@@ -9,7 +9,7 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 # =====================
-# CYBERPUNK STYLING
+#  STYLING
 # =====================
 class CyberColors:
     NEON_GREEN = '#39FF14'
@@ -120,12 +120,12 @@ TERMINAL_CSS = f"""
 # =====================
 # PENTEST CONFIGURATION
 # =====================
-TOOL_PATHS = {
-    'nmap': '/usr/bin/nmap',
-    'cme': '/usr/bin/crackmapexec',
-    'gobuster': '/usr/bin/gobuster',
-    'feroxbuster': '/usr/bin/feroxbuster',
-    'impacket': '/opt/impacket/examples/'
+DEFAULT_WORDLISTS = {
+    'dirbuster': '/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt',
+    'feroxbuster': '/usr/share/wordlists/seclists/Discovery/Web-Content/raft-large-directories.txt',
+    'snmp': '/usr/share/wordlists/dict.txt',
+    'users': 'users.txt',
+    'passwords': 'passwords.txt'
 }
 
 SERVICE_CHECKS = {
@@ -155,7 +155,7 @@ SERVICE_CHECKS = {
             'nmap --script=ssh-* -p 22 {ip}'
         ],
         'fallback': [
-            'hydra -L users.txt -P passwords.txt ssh://{ip}'
+            'hydra -L {users} -P {passwords} ssh://{ip}'
         ]
     },
     
@@ -163,12 +163,12 @@ SERVICE_CHECKS = {
     80: {
         'name': 'HTTP',
         'enum': [
-            'gobuster dir -u http://{ip} -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt',
+            'gobuster dir -u http://{ip} -w {dirbuster_wordlist}',
             'nikto -h http://{ip}',
             'whatweb -a3 http://{ip}'
         ],
         'fallback': [
-            'feroxbuster -u http://{ip} -w /usr/share/wordlists/seclists/Discovery/Web-Content/raft-large-directories.txt'
+            'feroxbuster -u http://{ip} -w {ferox_wordlist}'
         ]
     },
     
@@ -177,7 +177,7 @@ SERVICE_CHECKS = {
         'name': 'HTTPS',
         'enum': [
             'testssl.sh {ip}',
-            'gobuster dir -u https://{ip} -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt'
+            'gobuster dir -u https://{ip} -w {dirbuster_wordlist}'
         ],
         'fallback': [
             'sslscan {ip}'
@@ -189,16 +189,16 @@ SERVICE_CHECKS = {
         'name': 'SMB',
         'anon': [
             'smbclient -L //{ip}/ -N',
-            '{cme} smb {ip} --shares -u "" -p ""'
+            'crackmapexec smb {ip} --shares -u "" -p ""'
         ],
-        'auth': '{cme} smb {ip} -u {user} -p {pass} --shares',
+        'auth': 'crackmapexec smb {ip} -u {user} -p {pass} --shares',
         'enum': [
             'enum4linux -a {ip}',
             'nmap --script=smb-* -p 445 {ip}'
         ],
         'fallback': [
             'rpcclient -U "{user}%{pass}" {ip}',
-            'python3 {impacket}smbexec.py {user}:{pass}@{ip}'
+            'python3 -m impacket.examples.smbexec {user}:{pass}@{ip}'
         ]
     },
     
@@ -207,11 +207,11 @@ SERVICE_CHECKS = {
         'name': 'WinRM',
         'auth': [
             'evil-winrm -i {ip} -u {user} -p {pass}',
-            '{cme} winrm {ip} -u {user} -p {pass} -x "whoami"'
+            'crackmapexec winrm {ip} -u {user} -p {pass} -x "whoami"'
         ],
         'fallback': [
-            'python3 {impacket}wmiexec.py {user}:{pass}@{ip}',
-            '{cme} winrm {ip} -u {user} -p {pass} --ntlm'
+            'python3 -m impacket.examples.wmiexec {user}:{pass}@{ip}',
+            'crackmapexec winrm {ip} -u {user} -p {pass} --ntlm'
         ]
     },
     
@@ -221,7 +221,7 @@ SERVICE_CHECKS = {
         'auth': 'mysql -h {ip} -u {user} -p{pass} -e "SHOW DATABASES;"',
         'enum': [
             'nmap --script=mysql-* -p 3306 {ip}',
-            '{cme} mysql {ip} -u {user} -p {pass}'
+            'crackmapexec mysql {ip} -u {user} -p {pass}'
         ],
         'fallback': [
             'mysqldump -h {ip} -u {user} -p{pass} --all-databases'
@@ -233,7 +233,7 @@ SERVICE_CHECKS = {
         'name': 'RDP',
         'enum': [
             'nmap --script=rdp-* -p 3389 {ip}',
-            '{cme} rdp {ip} -u {user} -p {pass}'
+            'crackmapexec rdp {ip} -u {user} -p {pass}'
         ],
         'fallback': [
             'xfreerdp /v:{ip} /u:{user} /p:{pass} +auth-only'
@@ -246,7 +246,7 @@ SERVICE_CHECKS = {
         'auth': 'psql -h {ip} -U {user} -c "\l"',
         'enum': [
             'nmap --script=pgsql-* -p 5432 {ip}',
-            '{cme} postgres {ip} -u {user} -p {pass}'
+            'crackmapexec postgres {ip} -u {user} -p {pass}'
         ],
         'fallback': [
             'pg_dump -h {ip} -U {user} --all'
@@ -258,7 +258,7 @@ SERVICE_CHECKS = {
         'name': 'SNMP',
         'anon': [
             'snmpwalk -v1 -c public {ip}',
-            'onesixtyone -c /usr/share/wordlists/dict.txt {ip}'
+            'onesixtyone -c {snmp_wordlist} {ip}'
         ],
         'fallback': [
             'snmp-check {ip} -c public'
@@ -270,7 +270,7 @@ SERVICE_CHECKS = {
         'name': 'LDAP',
         'anon': [
             'ldapsearch -x -H ldap://{ip} -s base',
-            '{cme} ldap {ip}'
+            'crackmapexec ldap {ip}'
         ],
         'fallback': [
             'nmap --script=ldap-* -p 389 {ip}'
@@ -319,17 +319,8 @@ def parse_nmap(output):
         if '/tcp' in line and 'open' in line
     ]
 
-def service_checks(ip, port, user=None, password=None):
+def service_checks(ip, port, user=None, password=None, replacements=None):
     config = SERVICE_CHECKS.get(port, GENERIC_CHECKS)
-    replacements = {
-        'ip': ip,
-        'port': port,
-        'user': user or '',
-        'pass': password or '',
-        'cme': TOOL_PATHS['cme'],
-        'impacket': TOOL_PATHS['impacket']
-    }
-    
     results = []
     
     # Run standard checks
@@ -403,16 +394,31 @@ def main():
     parser.add_argument('ip', help='Target IP address')
     parser.add_argument('-u', '--user', help='Username for authentication')
     parser.add_argument('-p', '--password', help='Password for authentication')
+    parser.add_argument('-w', '--wordlist', help='Custom wordlist path')
+    parser.add_argument('--users', help='Custom user list for brute-force')
+    parser.add_argument('--passwords', help='Custom password list for brute-force')
     args = parser.parse_args()
 
+    # Configure replacements
+    replacements = {
+        'ip': args.ip,
+        'user': args.user or '',
+        'pass': args.password or '',
+        'dirbuster_wordlist': args.wordlist or DEFAULT_WORDLISTS['dirbuster'],
+        'ferox_wordlist': args.wordlist or DEFAULT_WORDLISTS['feroxbuster'],
+        'snmp_wordlist': args.wordlist or DEFAULT_WORDLISTS['snmp'],
+        'users': args.users or DEFAULT_WORDLISTS['users'],
+        'passwords': args.passwords or DEFAULT_WORDLISTS['passwords']
+    }
+
     print(f"[*] Initializing cyber scan on {args.ip}...")
-    nmap_cmd = f"{TOOL_PATHS['nmap']} -p- -T4 -sV -O {args.ip}"
+    nmap_cmd = f"nmap -p- -T4 -sV -O {args.ip}"
     nmap_result = run_cmd(nmap_cmd)
     open_ports = parse_nmap(nmap_result['output'])
     
     report_data = {}
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {port: executor.submit(service_checks, args.ip, port, args.user, args.password) 
+        futures = {port: executor.submit(service_checks, args.ip, port, args.user, args.password, replacements) 
                  for port, _ in open_ports}
         
         for port, future in futures.items():
@@ -429,4 +435,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
