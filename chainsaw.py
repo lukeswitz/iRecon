@@ -14,6 +14,167 @@ import random
 import time
 import threading
 from pathlib import Path
+import platform
+import shutil
+
+def check_and_install_tools():
+  """Check for required tools and install if missing"""
+  
+  # Required tools mapping: command -> package_name
+  required_tools = {
+    'nmap': 'nmap',
+    'gobuster': 'gobuster', 
+    'nikto': 'nikto',
+    'feroxbuster': 'feroxbuster',
+    'smbclient': 'smbclient',
+    'enum4linux': 'enum4linux',
+    'crackmapexec': 'crackmapexec',
+    'evil-winrm': 'evil-winrm',
+    'testssl.sh': 'testssl.sh',
+    'redis-cli': 'redis-tools',
+    'mysql': 'mysql-client',
+    'psql': 'postgresql-client',
+    'hydra': 'hydra'
+  }
+  
+  # Detect OS
+  system = platform.system().lower()
+  distro = None
+  
+  if system == 'linux':
+    try:
+      with open('/etc/os-release', 'r') as f:
+        content = f.read().lower()
+        if 'ubuntu' in content or 'debian' in content:
+          distro = 'debian'
+        elif 'centos' in content or 'rhel' in content or 'fedora' in content:
+          distro = 'redhat'
+        elif 'arch' in content:
+          distro = 'arch'
+    except:
+      distro = 'unknown'
+      
+  print(f"[*] Detected OS: {system} ({distro if distro else 'unknown'})")
+  
+  # Check for missing tools
+  missing_tools = []
+  for tool, package in required_tools.items():
+    if not shutil.which(tool):
+      missing_tools.append((tool, package))
+      
+  if not missing_tools:
+    print("[+] All required tools are installed!")
+    return True
+  
+  print(f"[!] Missing tools: {[tool for tool, _ in missing_tools]}")
+  
+  # Ask user permission
+  response = input("[?] Install missing tools? (y/N): ").lower().strip()
+  if response not in ['y', 'yes']:
+    print("[!] Continuing without installing tools (some scans may fail)")
+    return False
+  
+  # Install based on OS
+  if system == 'linux' and distro == 'debian':
+    install_debian_tools(missing_tools)
+  elif system == 'linux' and distro == 'redhat':
+    install_redhat_tools(missing_tools)
+  elif system == 'linux' and distro == 'arch':
+    install_arch_tools(missing_tools)
+  elif system == 'darwin':  # macOS
+    install_macos_tools(missing_tools)
+  else:
+    print(f"[!] Automatic installation not supported for {system} ({distro})")
+    print("[!] Please install tools manually:")
+    for tool, package in missing_tools:
+      print(f"    - {tool} ({package})")
+    return False
+  
+  return True
+
+def install_debian_tools(missing_tools):
+  """Install tools on Debian/Ubuntu systems"""
+  packages = []
+  
+  # Special cases for Debian/Ubuntu
+  package_map = {
+    'crackmapexec': 'python3-crackmapexec',
+    'evil-winrm': 'evil-winrm',
+    'feroxbuster': None,  # Not in default repos
+    'testssl.sh': 'testssl.sh'
+  }
+  
+  for tool, default_package in missing_tools:
+    package = package_map.get(tool, default_package)
+    if package:
+      packages.append(package)
+    elif tool == 'feroxbuster':
+      print("[!] feroxbuster not in default repos - install manually from GitHub")
+      
+  if packages:
+    cmd = f"sudo apt update && sudo apt install -y {' '.join(packages)}"
+    print(f"[*] Running: {cmd}")
+    os.system(cmd)
+    
+def install_redhat_tools(missing_tools):
+  """Install tools on RedHat/CentOS/Fedora systems"""
+  packages = []
+  
+  # Check if dnf or yum
+  pkg_manager = 'dnf' if shutil.which('dnf') else 'yum'
+  
+  for tool, package in missing_tools:
+    if tool == 'crackmapexec':
+      print("[!] crackmapexec - install via pip: pip3 install crackmapexec")
+    elif tool == 'feroxbuster':
+      print("[!] feroxbuster - install from GitHub releases")
+    else:
+      packages.append(package)
+      
+  if packages:
+    cmd = f"sudo {pkg_manager} install -y {' '.join(packages)}"
+    print(f"[*] Running: {cmd}")
+    os.system(cmd)
+    
+def install_arch_tools(missing_tools):
+  """Install tools on Arch Linux"""
+  packages = []
+  aur_packages = []
+  
+  for tool, package in missing_tools:
+    if tool in ['crackmapexec', 'evil-winrm', 'feroxbuster']:
+      aur_packages.append(package)
+    else:
+      packages.append(package)
+      
+  if packages:
+    cmd = f"sudo pacman -S --noconfirm {' '.join(packages)}"
+    print(f"[*] Running: {cmd}")
+    os.system(cmd)
+    
+  if aur_packages:
+    print(f"[!] AUR packages need manual install: {aur_packages}")
+    
+def install_macos_tools(missing_tools):
+  """Install tools on macOS using Homebrew"""
+  if not shutil.which('brew'):
+    print("[!] Homebrew not found. Install from https://brew.sh/")
+    return
+  
+  packages = []
+  for tool, package in missing_tools:
+    if tool == 'crackmapexec':
+      packages.append('crackmapexec')
+    elif tool == 'evil-winrm':
+      packages.append('evil-winrm')
+    else:
+      packages.append(package)
+      
+  if packages:
+    cmd = f"brew install {' '.join(packages)}"
+    print(f"[*] Running: {cmd}")
+    os.system(cmd)
+
 
 # =====================
 #  STYLING
@@ -1184,6 +1345,9 @@ done
         print(f"[+] Continuous monitoring script created: {monitor_filename}")
 
 def main():
+    # Check and install tools first
+    check_and_install_tools()
+
     parser = argparse.ArgumentParser(
         description='Chainsaw Network Penetration Testing Tool',
         formatter_class=argparse.RawDescriptionHelpFormatter,
