@@ -11,6 +11,10 @@ import random
 import time
 import platform
 import shutil
+import signal
+import sys
+import atexit
+
 
 def check_and_install_tools():
   """Check for required tools and install if missing"""
@@ -170,6 +174,36 @@ def install_macos_tools(missing_tools):
     print(f"[*] Running: {cmd}")
     os.system(cmd)
 
+class GracefulShutdown:
+  def __init__(self):
+    self.shutdown = False
+    self.cleanup_files = []
+    signal.signal(signal.SIGINT, self.exit_gracefully)
+    signal.signal(signal.SIGTERM, self.exit_gracefully)
+    atexit.register(self.cleanup)
+    
+  def exit_gracefully(self, signum, frame):
+    print(f"\n{chr(27)}[0m[!] Shutdown signal received...")
+    print("[!] Cleaning up...")
+    self.shutdown = True
+    self.cleanup()
+    sys.exit(0)
+    
+  def cleanup(self):
+    # Reset terminal colors
+    print(f"{chr(27)}[0m", end="", flush=True)
+    
+    # Clean up partial files
+    for filepath in self.cleanup_files:
+      try:
+        if os.path.exists(filepath) and os.path.getsize(filepath) < 1000:  # Partial file
+          os.remove(filepath)
+          print(f"[+] Cleaned up partial file: {filepath}")
+      except:
+        pass
+        
+  def add_cleanup_file(self, filepath):
+    self.cleanup_files.append(filepath)
 
 # =====================
 #  STYLING
@@ -680,6 +714,7 @@ class CyberScanner:
         self.attack_paths = []
         self.risk_scores = {}
         self.start_time = datetime.now()
+        self.shutdown_handler = GracefulShutdown() 
         
     def banner(self):
         banner_text = f"""
@@ -703,40 +738,47 @@ class CyberScanner:
     def run_cmd_enhanced(self, cmd, timeout=30):
         """Enhanced command execution with better error handling"""
         try:
-            # Add evasion delays if enabled
-            if self.args.evasion:
-                time.sleep(random.uniform(0.5, 3.0))
-                
-            result = subprocess.run(
-                cmd,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=timeout
-            )
-            return {
-                'command': cmd,
-                'output': f"{result.stdout}\n{result.stderr}".strip(),
-                'success': result.returncode == 0,
-                'return_code': result.returncode,
-                'execution_time': time.time()
-            }
+          # Check if shutdown requested
+          if self.shutdown_handler.shutdown:
+            return {'command': cmd, 'output': 'Interrupted', 'success': False}
+          
+          # Add evasion delays if enabled
+          if self.args.evasion:
+            time.sleep(random.uniform(0.5, 3.0))
+            
+          result = subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout
+          )
+          return {
+            'command': cmd,
+            'output': f"{result.stdout}\n{result.stderr}".strip(),
+            'success': result.returncode == 0,
+            'return_code': result.returncode,
+            'execution_time': time.time()
+          }
+        except KeyboardInterrupt:
+          print(f"{chr(27)}[0m\n[!] Command interrupted: {cmd}")
+          raise
         except subprocess.TimeoutExpired:
-            return {
-                'command': cmd,
-                'output': f"Command timed out after {timeout} seconds",
-                'success': False,
-                'return_code': -1,
-                'execution_time': time.time()
-            }
+          return {
+            'command': cmd,
+            'output': f"Command timed out after {timeout} seconds",
+            'success': False,
+            'return_code': -1,
+            'execution_time': time.time()
+          }
         except Exception as e:
-            return {
-                'command': cmd,
-                'output': f"Error: {str(e)}",
-                'success': False,
-                'return_code': -2,
-                'execution_time': time.time()
-            }
+          return {
+            'command': cmd,
+            'output': f"Error: {str(e)}",
+            'success': False,
+            'return_code': -2,
+            'execution_time': time.time()
+          }
 
     def parse_nmap_enhanced(self, output):
         """Enhanced nmap output parsing"""
@@ -1167,6 +1209,7 @@ class CyberScanner:
           
           json_filename = f"chainsaw_{ip}_{datetime.now().strftime('%Y%m%d%H%M')}.json"
           with open(json_filename, 'w') as f:
+            self.shutdown_handler.add_cleanup_file(json_filename)
             json.dump(json_data, f, indent=2, default=str)
             
           html += f"""
@@ -1280,7 +1323,11 @@ class CyberScanner:
         
         # Parallel service scanning
         with ThreadPoolExecutor(max_workers=10) as executor:
+          try:
             futures = {}
+            for port, service in open_ports:
+              if self.shutdown_handler.shutdown:
+                break
             for port, service in open_ports:
               # Add port to replacements for each service
               port_replacements = replacements.copy()
@@ -1301,6 +1348,10 @@ class CyberScanner:
                 print(f"[!] Error scanning port {port}: {str(e)}")
                 self.results[port] = []
                 self.risk_scores[port] = 0.0
+          except KeyboardInterrupt:
+            print(f"{chr(27)}[0m[!] Shutting down gracefully...")
+            executor.shutdown(wait=False)
+            raise
         
         # Analyze attack paths
         self.attack_paths = self.analyze_attack_paths(self.results)
@@ -1312,7 +1363,8 @@ class CyberScanner:
         filename = f"chainsasw_{self.args.ip}_{timestamp}.html"
         
         with open(filename, 'w', encoding='utf-8') as f:
-            f.write(report)
+          self.shutdown_handler.add_cleanup_file(filename)
+          f.write(report)
         
         print(f"[+] Network analysis complete: {filename}")
         
