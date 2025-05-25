@@ -1021,6 +1021,95 @@ ENHANCED_SERVICE_CHECKS = {
             'openssl s_client -connect {ip}:2376'
         ]
     },
+  
+    # DNS 
+    53: {
+      'name': 'DNS',
+      'risk_base': 6.0,
+      'enum': [
+        'nslookup {ip}',
+        'dig @{ip} version.bind chaos txt',
+        'nmap --script=dns-* -p 53 {ip}',
+        'dnsrecon -d {ip} -n {ip}'
+      ],
+      'fallback': ['nc -v {ip} 53']
+    },
+  
+    # Kerberos
+    88: {
+      'name': 'Kerberos',
+      'risk_base': 7.0,
+      'enum': [
+        'nmap --script=krb5-enum-users -p 88 {ip}',
+        'kerbrute userenum --dc {ip} {users}',
+        'nxc ldap {ip} -u "" -p "" --asreproast'
+      ],
+      'fallback': ['nc -v {ip} 88']
+    },
+  
+    # NetBIOS
+    139: {
+      'name': 'NetBIOS',
+      'risk_base': 7.0,
+      'enum': [
+        'nbtscan {ip}',
+        'smbclient -L //{ip}/ -N',
+        'nmap --script=nbstat -p 139 {ip}'
+      ],
+      'fallback': ['nc -v {ip} 139']
+    },
+  
+    # Kerberos Password Change
+    464: {
+      'name': 'Kerberos-PW',
+      'risk_base': 6.0,
+      'enum': ['nmap --script=krb5-* -p 464 {ip}'],
+      'fallback': ['nc -v {ip} 464']
+    },
+  
+    # RPC over HTTP
+    593: {
+      'name': 'RPC-HTTP',
+      'risk_base': 7.0,
+      'enum': [
+        'nmap --script=rpc-* -p 593 {ip}',
+        'rpcclient -U "" {ip}'
+      ],
+      'fallback': ['nc -v {ip} 593']
+    },
+  
+    # LDAPS
+    636: {
+      'name': 'LDAPS',
+      'risk_base': 6.5,
+      'enum': [
+        'ldapsearch -x -H ldaps://{ip} -s base',
+        'nmap --script=ssl-cert -p 636 {ip}',
+        'nxc ldap {ip} -u "" -p ""'
+      ],
+      'fallback': ['openssl s_client -connect {ip}:636']
+    },
+  
+    # Global Catalog
+    3268: {
+      'name': 'Global-Catalog',
+      'risk_base': 6.0,
+      'enum': [
+        'ldapsearch -x -H ldap://{ip}:3268 -s base',
+        'nmap --script=ldap-* -p 3268 {ip}'
+      ],
+      'fallback': ['nc -v {ip} 3268']
+    },
+  
+    3269: {
+      'name': 'Global-Catalog-SSL',
+      'risk_base': 6.0,
+      'enum': [
+        'ldapsearch -x -H ldaps://{ip}:3269 -s base',
+        'nmap --script=ldap-* -p 3269 {ip}'
+      ],
+      'fallback': ['openssl s_client -connect {ip}:3269']
+    },
     
     # Other services
     161: {
@@ -1085,12 +1174,12 @@ class CyberScanner:
         """Display enhanced cyberpunk banner with error handling"""
         banner_text = f"""
     {chr(27)}[91m
-      ██████╗ ██╗  ██╗ █████╗ ██╗███╗   ██╗███████╗ █████╗ ██╗    ██╗
-      ██╔════╝██║  ██║██╔══██╗██║████╗  ██║██╔════╝██╔══██╗██║    ██║
-      ██║     ███████║███████║██║██╔██╗ ██║███████╗███████║██║ █╗ ██║
-      ██║     ██╔══██║██╔══██║██║██║╚██╗██║╚════██║██╔══██║██║███╗██║
-      ╚██████╗██║  ██║██║  ██║██║██║ ╚████║███████║██║  ██║╚███╔███╔╝
-      ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝ 
+  ██████╗ ██╗  ██╗ █████╗ ██╗███╗   ██╗███████╗ █████╗ ██╗    ██╗
+  ██╔════╝██║  ██║██╔══██╗██║████╗  ██║██╔════╝██╔══██╗██║    ██║
+  ██║     ███████║███████║██║██╔██╗ ██║███████╗███████║██║ █╗ ██║
+  ██║     ██╔══██║██╔══██║██║██║╚██╗██║╚════██║██╔══██║██║███╗██║
+  ╚██████╗██║  ██║██║  ██║██║██║ ╚████║███████║██║  ██║╚███╔███╔╝
+  ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝ 
 
             ⚡ AUTOMATED NETWORK TESTING FRAMEWORK ⚡
     {chr(27)}[0m{chr(27)}[93m
@@ -1296,53 +1385,68 @@ class CyberScanner:
         config = ENHANCED_SERVICE_CHECKS.get(port, GENERIC_CHECKS)
         results = []
         
-#       print(f"[*] Testing port {port} ({config.get('name', 'Unknown')})...")
+        print(f"[*] Testing port {port} ({config.get('name', 'Unknown')})...")
         
-        # Add API testing for web services
-        if port in [80, 443, 8080, 8443]:
+        # Skip API testing message fix
+        if port in [80, 443, 8080, 8443] and self.args.api_test:
           print(f"[*] Running API endpoint tests on port {port}...")
           api_results = self.test_api_endpoints(ip, port)
           results.extend(api_results)
           
-        # Add evasion techniques if enabled
-        if self.args.evasion:
-          print(f"[*] Running evasion scans on port {port}...")
-          evasion_results = self.adaptive_scanning(ip, port)
-          for cmd in evasion_results:
-            result = self.run_cmd_enhanced(cmd.format(**replacements))
-            results.append(result)
-            
-        # Run standard checks with enhanced error handling
+        # Run standard checks with LONGER TIMEOUTS
         for check_type in ['anon', 'auth', 'enum']:
           if check_type in config:
-#           print(f"[*] Running {check_type} checks on port {port}...")
+            print(f"[*] Running {check_type} checks on port {port}...")
             checks = config[check_type] if isinstance(config[check_type], list) else [config[check_type]]
             
-            with ThreadPoolExecutor(max_workers=5) as executor:
+            # VALIDATE COMMANDS BEFORE EXECUTION
+            validated_checks = []
+            for check in checks:
+              tool = check.split()[0]
+              if shutil.which(tool) or tool in ['python3', 'openssl', 'nc', 'telnet']:
+                validated_checks.append(check)
+              else:
+                print(f"[!] Tool not found: {tool}")
+                
+            if not validated_checks:
+              print(f"[!] No valid tools for {check_type} checks on port {port}")
+              continue
+            
+            # Execute with proper threading and longer timeouts
+            with ThreadPoolExecutor(max_workers=3) as executor:  # Reduced workers
               futures = []
-              for check in checks:
+              for check in validated_checks:
                 if check_type == 'auth' and (not user or not password):
                   print(f"[!] Skipping auth check (no credentials): {check}")
                   continue
                 processed_cmd = check.format(**replacements)
-                
-                future = executor.submit(self.run_cmd_enhanced, processed_cmd)
+                print(f"[*] Executing: {processed_cmd}")
+                future = executor.submit(self.run_cmd_enhanced, processed_cmd, timeout=60)  # LONGER TIMEOUT
                 futures.append(future)
                 
+              for future in as_completed(futures, timeout=90):  # LONGER COMPLETION TIMEOUT
+                try:
+                  result = future.result(timeout=5)
+                  if result['success']:
+                    print(f"[+] Command succeeded: {result['command'][:50]}...")
+                  else:
+                    print(f"[!] Command failed: {result['command'][:50]}...")
+                  results.append(result)
+                except Exception as e:
+                  print(f"[!] Tool execution error: {str(e)}")
                   
-        # Run fallbacks if no successes
+        # Only run fallbacks if NO successes (not just enum failures)
         if 'fallback' in config and not any(res.get('success', False) for res in results):
-#         print(f"[*] Running fallback tools for port {port}...")
+          print(f"[*] Running fallback tools for port {port}...")
           fallbacks = config['fallback'] if isinstance(config['fallback'], list) else [config['fallback']]
-          for fallback in fallbacks:
+          for fallback in fallbacks[:2]:  # Limit fallbacks
             processed_cmd = fallback.format(**replacements)
-#           print(f"[*] Fallback: {processed_cmd}")
-            result = self.run_cmd_enhanced(processed_cmd)
+            print(f"[*] Fallback: {processed_cmd}")
+            result = self.run_cmd_enhanced(processed_cmd, timeout=15)  # Shorter timeout for fallbacks
             results.append(result)
-            
+          
         print(f"[+] Completed {len(results)} tests on port {port}")
-        return results
-        
+        return results        
         # Run fallbacks if no successes
         if 'fallback' in config and not any(res.get('success', False) for res in results):
             fallbacks = config['fallback'] if isinstance(config['fallback'], list) else [config['fallback']]
