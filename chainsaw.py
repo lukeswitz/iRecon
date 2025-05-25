@@ -1509,16 +1509,6 @@ class CyberScanner:
         html += f"""
               </div>
             </div>
-            
-            <div style="margin: 2rem 0;">
-              <h3 class="success">RECOMMENDED ACTIONS:</h3>
-              <div style="margin-left: 2rem; color: {CyberColors.NEON_GREEN};">
-                <p>1. Immediate patching required for critical findings</p>
-                <p>2. Implement network segmentation</p>
-                <p>3. Enable monitoring for suspicious activities</p>
-                <p>4. Review access controls and authentication mechanisms</p>
-              </div>
-            </div>
           </div>
         """
         
