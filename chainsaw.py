@@ -155,24 +155,193 @@ def install_arch_tools(missing_tools):
     print(f"[!] AUR packages need manual install: {aur_packages}")
     
 def install_macos_tools(missing_tools):
-  """Install tools on macOS using Homebrew"""
-  if not shutil.which('brew'):
-    print("[!] Homebrew not found. Install from https://brew.sh/")
-    return
-  
-  packages = []
-  for tool, package in missing_tools:
-    if tool == 'crackmapexec':
-      packages.append('crackmapexec')
-    elif tool == 'evil-winrm':
-      packages.append('evil-winrm')
-    else:
-      packages.append(package)
+    """Advanced macOS tool installer using multiple package managers"""
+    if not shutil.which('brew'):
+      print("[!] Homebrew not found. Install from https://brew.sh/")
+      return
+    
+    # Installation method mappings for macOS
+    brew_packages = []
+    cargo_packages = []
+    pipx_packages = {}
+    go_packages = {}
+    gem_packages = []
+    docker_commands = []
+    manual_installs = []
+    
+    # Tool installation mappings
+    tool_methods = {
+      # Homebrew (easiest and most reliable)
+      'nmap': {'method': 'brew', 'package': 'nmap'},
+      'gobuster': {'method': 'brew', 'package': 'gobuster'},
+      'nikto': {'method': 'brew', 'package': 'nikto'},
+      'testssl': {'method': 'brew', 'package': 'testssl'},
+      'redis-cli': {'method': 'brew', 'package': 'redis'},
+      'mysql': {'method': 'brew', 'package': 'mysql-client'},
+      'psql': {'method': 'brew', 'package': 'postgresql@14'},
+      'hydra': {'method': 'brew', 'package': 'hydra'},
+      'smbclient': {'method': 'brew', 'package': 'samba'},
       
-  if packages:
-    cmd = f"brew install {' '.join(packages)}"
-    print(f"[*] Running: {cmd}")
-    os.system(cmd)
+      # Cargo (Rust) packages
+      'feroxbuster': {'method': 'cargo', 'package': 'feroxbuster'},
+      
+      # pipx (Python) packages - isolated environments
+      'crackmapexec': {'method': 'pipx', 'package': 'git+https://github.com/Pennyw0rth/NetExec'},
+      'impacket-scripts': {'method': 'pipx', 'package': 'impacket'},
+      
+      # Go packages
+      'subfinder': {'method': 'go', 'package': 'github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest'},
+      
+      # Gem (Ruby) packages
+      'evil-winrm': {'method': 'gem', 'package': 'evil-winrm'},
+      
+      # Docker alternatives for Linux-specific tools
+      'enum4linux': {'method': 'docker', 'command': 'docker pull cddmp/enum4linux-ng'},
+      'crackmapexec-alt': {'method': 'docker', 'command': 'docker pull byt3bl33d3r/crackmapexec'},
+      
+      # Manual installations from GitHub releases
+      'nuclei': {'method': 'manual', 'url': 'https://github.com/projectdiscovery/nuclei/releases'},
+    }
+    
+    # Categorize tools by installation method
+    for tool, default_package in missing_tools:
+      if tool in tool_methods:
+        method_info = tool_methods[tool]
+        method = method_info['method']
+        
+        if method == 'brew':
+          brew_packages.append(method_info['package'])
+        elif method == 'cargo':
+          cargo_packages.append(method_info['package'])
+        elif method == 'pipx':
+          pipx_packages[tool] = method_info['package']
+        elif method == 'go':
+          go_packages[tool] = method_info['package']
+        elif method == 'gem':
+          gem_packages.append(method_info['package'])
+        elif method == 'docker':
+          docker_commands.append(method_info['command'])
+        elif method == 'manual':
+          manual_installs.append((tool, method_info.get('url', 'GitHub')))
+      else:
+        manual_installs.append((tool, 'Unknown installation method'))
+        
+    # Install via Homebrew
+    if brew_packages:
+      cmd = f"brew install {' '.join(sorted(set(brew_packages)))}"
+      print(f"[*] Installing via Homebrew: {cmd}")
+      os.system(cmd)
+      
+    # Install via Cargo (Rust)
+    if cargo_packages:
+      if not shutil.which('cargo'):
+        print("[*] Installing Rust toolchain...")
+        os.system("brew install rust")
+        
+      for package in cargo_packages:
+        print(f"[*] Installing via Cargo: {package}")
+        os.system(f"cargo install {package}")
+        
+    # Install via pipx (Python)
+    if pipx_packages:
+      if not shutil.which('pipx'):
+        print("[*] Installing pipx...")
+        os.system("brew install pipx")
+        os.system("pipx ensurepath")
+        
+      for tool, package in pipx_packages.items():
+        print(f"[*] Installing {tool} via pipx...")
+        os.system(f"pipx install {package}")
+        
+    # Install via Go
+    if go_packages:
+      if not shutil.which('go'):
+        print("[*] Installing Go...")
+        os.system("brew install go")
+        
+      for tool, package in go_packages.items():
+        print(f"[*] Installing {tool} via Go...")
+        os.system(f"go install {package}")
+        
+    # Install via Gem (Ruby)
+    if gem_packages:
+      for package in gem_packages:
+        print(f"[*] Installing via Gem: {package}")
+        os.system(f"gem install {package}")
+        
+    # Setup Docker alternatives
+    if docker_commands:
+      if not shutil.which('docker'):
+        print("[!] Docker not found. Install Docker Desktop for macOS")
+        print("    Download from: https://docs.docker.com/desktop/mac/install/")
+      else:
+        for cmd in docker_commands:
+          print(f"[*] Setting up Docker image: {cmd}")
+          os.system(cmd)
+          
+      # Create wrapper scripts for Docker tools
+      create_docker_wrappers()
+      
+    # Manual installations
+    if manual_installs:
+      print("\n[!] Manual installation required for:")
+      for tool, source in manual_installs:
+        print(f"    • {tool}: {source}")
+        
+    print("\n[+] macOS tool installation complete!")
+    
+def create_docker_wrappers():
+    """Create wrapper scripts for Docker-based tools"""
+    wrappers = {
+      'enum4linux': '''#!/bin/bash
+  docker run --rm -it cddmp/enum4linux-ng "$@"
+  ''',
+      'crackmapexec-docker': '''#!/bin/bash
+  docker run --rm -it byt3bl33d3r/crackmapexec "$@"
+  '''
+    }
+    
+    wrapper_dir = os.path.expanduser("~/.local/bin")
+    os.makedirs(wrapper_dir, exist_ok=True)
+    
+    for tool, script in wrappers.items():
+      wrapper_path = os.path.join(wrapper_dir, tool)
+      with open(wrapper_path, 'w') as f:
+        f.write(script)
+      os.chmod(wrapper_path, 0o755)
+      print(f"[+] Created Docker wrapper: {wrapper_path}")
+      
+    # Add to PATH if not already there
+    shell_rc = os.path.expanduser("~/.zshrc")
+    path_export = 'export PATH="$HOME/.local/bin:$PATH"'
+    
+    try:
+      with open(shell_rc, 'r') as f:
+        content = f.read()
+        
+      if path_export not in content:
+        with open(shell_rc, 'a') as f:
+          f.write(f"\n# Added by chainsaw installer\n{path_export}\n")
+        print(f"[+] Added ~/.local/bin to PATH in {shell_rc}")
+    except:
+      print(f"[!] Manually add to PATH: {path_export}")
+      
+def check_package_managers():
+    """Check and install required package managers"""
+    managers = {}
+    
+    # Check Homebrew
+    managers['brew'] = shutil.which('brew') is not None
+    
+    # Check others
+    managers['cargo'] = shutil.which('cargo') is not None
+    managers['pipx'] = shutil.which('pipx') is not None
+    managers['go'] = shutil.which('go') is not None
+    managers['gem'] = shutil.which('gem') is not None
+    managers['docker'] = shutil.which('docker') is not None
+    
+    print(f"[*] Package managers available: {[k for k, v in managers.items() if v]}")
+    return managers
 
 class GracefulShutdown:
   def __init__(self):
@@ -918,42 +1087,67 @@ class CyberScanner:
         config = ENHANCED_SERVICE_CHECKS.get(port, GENERIC_CHECKS)
         results = []
         
+        print(f"[*] Testing port {port} ({config.get('name', 'Unknown')})...")
+        
         # Add API testing for web services
         if port in [80, 443, 8080, 8443]:
-            api_results = self.test_api_endpoints(ip, port)
-            results.extend(api_results)
-            
+          print(f"[*] Running API endpoint tests on port {port}...")
+          api_results = self.test_api_endpoints(ip, port)
+          results.extend(api_results)
+          
         # Add evasion techniques if enabled
         if self.args.evasion:
-            evasion_results = self.adaptive_scanning(ip, port)
-            for cmd in evasion_results:
-                result = self.run_cmd_enhanced(cmd.format(**replacements))
-                results.append(result)
-        
+          print(f"[*] Running evasion scans on port {port}...")
+          evasion_results = self.adaptive_scanning(ip, port)
+          for cmd in evasion_results:
+            result = self.run_cmd_enhanced(cmd.format(**replacements))
+            results.append(result)
+            
         # Run standard checks with enhanced error handling
         for check_type in ['anon', 'auth', 'enum']:
-            if check_type in config:
-                checks = config[check_type] if isinstance(config[check_type], list) else [config[check_type]]
+          if check_type in config:
+            print(f"[*] Running {check_type} checks on port {port}...")
+            checks = config[check_type] if isinstance(config[check_type], list) else [config[check_type]]
+            
+            with ThreadPoolExecutor(max_workers=5) as executor:
+              futures = []
+              for check in checks:
+                if check_type == 'auth' and (not user or not password):
+                  print(f"[!] Skipping auth check (no credentials): {check}")
+                  continue
+                processed_cmd = check.format(**replacements)
+                print(f"[*] Executing: {processed_cmd}")  # ADD THIS DEBUG LINE
+                future = executor.submit(self.run_cmd_enhanced, processed_cmd)
+                futures.append(future)
                 
-                with ThreadPoolExecutor(max_workers=5) as executor:
-                    futures = []
-                    for check in checks:
-                        if check_type == 'auth' and (not user or not password):
-                            continue
-                        processed_cmd = check.format(**replacements)
-                        future = executor.submit(self.run_cmd_enhanced, processed_cmd)
-                        futures.append(future)
-                    
-                    for future in as_completed(futures):
-                        try:
-                            result = future.result(timeout=30)
-                            results.append(result)
-                        except Exception as e:
-                            results.append({
-                                'command': 'unknown',
-                                'output': f'Error: {str(e)}',
-                                'success': False
-                            })
+              for future in as_completed(futures):
+                try:
+                  result = future.result(timeout=30)
+                  if result['success']:
+                    print(f"[+] Command succeeded: {result['command'][:50]}...")
+                  else:
+                    print(f"[!] Command failed: {result['command'][:50]}...")
+                  results.append(result)
+                except Exception as e:
+                  print(f"[!] Tool execution error: {str(e)}")
+                  results.append({
+                    'command': 'unknown',
+                    'output': f'Error: {str(e)}',
+                    'success': False
+                  })
+                  
+        # Run fallbacks if no successes
+        if 'fallback' in config and not any(res.get('success', False) for res in results):
+          print(f"[*] Running fallback tools for port {port}...")
+          fallbacks = config['fallback'] if isinstance(config['fallback'], list) else [config['fallback']]
+          for fallback in fallbacks:
+            processed_cmd = fallback.format(**replacements)
+            print(f"[*] Fallback: {processed_cmd}")
+            result = self.run_cmd_enhanced(processed_cmd)
+            results.append(result)
+            
+        print(f"[+] Completed {len(results)} tests on port {port}")
+        return results
         
         # Run fallbacks if no successes
         if 'fallback' in config and not any(res.get('success', False) for res in results):
