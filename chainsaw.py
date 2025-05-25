@@ -253,7 +253,7 @@ ENHANCED_SERVICE_CHECKS = {
     # Traditional services
     21: {
         'name': 'FTP',
-        'risk_base': 8.5,
+        'risk_base': 6.5,
         'anon': [
             'curl -v ftp://{ip} --max-time 10',
             'ftp -inv {ip} <<< "user anonymous anonymous"',
@@ -271,7 +271,7 @@ ENHANCED_SERVICE_CHECKS = {
     
     22: {
         'name': 'SSH',
-        'risk_base': 6.0,
+        'risk_base': 5.0,
         'auth': 'ssh {user}@{ip} -o PasswordAuthentication=yes -o ConnectTimeout=10',
         'enum': [
             'ssh -v {user}@{ip} -o ConnectTimeout=10',
@@ -286,7 +286,7 @@ ENHANCED_SERVICE_CHECKS = {
     # Web services
     80: {
         'name': 'HTTP',
-        'risk_base': 5.0,
+        'risk_base': 3.0,
         'enum': [
             'gobuster dir -u http://{ip} -w {dirbuster_wordlist} -t 50 --timeout 10s',
             'nikto -h http://{ip} -timeout 10',
@@ -300,7 +300,7 @@ ENHANCED_SERVICE_CHECKS = {
     
     443: {
         'name': 'HTTPS',
-        'risk_base': 5.0,
+        'risk_base': 2.0,
         'enum': [
             'testssl.sh {ip} --fast',
             'gobuster dir -u https://{ip} -w {dirbuster_wordlist} -k -t 50',
@@ -315,7 +315,7 @@ ENHANCED_SERVICE_CHECKS = {
     # Alternative HTTP ports
     8080: {
         'name': 'HTTP-Proxy',
-        'risk_base': 6.0,
+        'risk_base': 5.0,
         'enum': [
             'gobuster dir -u http://{ip}:8080 -w {dirbuster_wordlist} -t 50',
             'curl -I http://{ip}:8080 --max-time 5',
@@ -371,7 +371,7 @@ ENHANCED_SERVICE_CHECKS = {
     
     5985: {
         'name': 'WinRM',
-        'risk_base': 8.0,
+        'risk_base': 7.0,
         'auth': [
             'evil-winrm -i {ip} -u {user} -p {pass}',
             'crackmapexec winrm {ip} -u {user} -p {pass} -x "whoami"'
@@ -384,7 +384,7 @@ ENHANCED_SERVICE_CHECKS = {
     # Databases
     3306: {
         'name': 'MySQL',
-        'risk_base': 7.0,
+        'risk_base': 6.0,
         'auth': 'mysql -h {ip} -u {user} -p{pass} -e "SHOW DATABASES;" --connect-timeout=10',
         'enum': [
             'nmap --script=mysql-* -p 3306 {ip}',
@@ -850,12 +850,13 @@ class CyberScanner:
     def generate_enhanced_report(self, results, ip):
         """Generate comprehensive cyberpunk-styled HTML report"""
         exec_summary = self.generate_executive_summary(results, ip)
+        threat_level, status = self.get_overall_threat_level()
         
         html = f"""
         <!DOCTYPE html>
         <html>
         <head>
-          <title>CYBERSCAN NETWORK ANALYSIS :: {ip}</title>
+          <title>CHAINSAW ANALYSIS :: {ip}</title>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           {TERMINAL_CSS}
@@ -863,13 +864,13 @@ class CyberScanner:
         <body>
           <div class="scan-line"></div>
           <div class="terminal-header">
-            <h1 class="glitch">// CYBERSCAN NETWORK ANALYSIS</h1>
+            <h1 class="glitch">// CHAINSAW NETWORK ANALYSIS</h1>
             <h2>TARGET ACQUIRED: {ip}</h2>
             <h3>{datetime.now().strftime('[%Y-%m-%d %H:%M:%S UTC]')}</h3>
             <div style="margin-top: 1rem;">
               <span class="success">SCAN STATUS: COMPLETE</span> | 
               <span class="warning">DURATION: {datetime.now() - self.start_time}</span> | 
-              <span class="fail">THREAT LEVEL: {'CRITICAL' if any(score >= 9.0 for score in self.risk_scores.values()) else 'ELEVATED'}</span>
+              <span class="{'fail' if threat_level in ['CRITICAL', 'HIGH'] else 'warning' if threat_level == 'ELEVATED' else 'success'}">THREAT LEVEL: {threat_level}</span>
             </div>
           </div>
           
@@ -1021,18 +1022,38 @@ class CyberScanner:
           """
           
         html += f"""
-          <div class="service">
-            <h3 class="glitch">// END OF TRANSMISSION</h3>
-            <pre class="{'success' if not any(score >= 9.0 for score in self.risk_scores.values()) else 'fail'}">
-      [!] SYSTEM SECURITY STATUS: {'ACCEPTABLE' if not any(score >= 9.0 for score in self.risk_scores.values()) else 'COMPROMISED'}
-      [!] CHAINSAW ANALYSIS COMPLETE
+            <div class="service">
+              <h3 class="glitch">// END OF TRANSMISSION</h3>
+              <pre class="{'success' if status == 'ACCEPTABLE' else 'warning' if status == 'CONCERNING' else 'fail'}">
+      [!] SYSTEM SECURITY STATUS: {status}
+      [!] CHAINSAW ANALYSIS COMPLETE  
       [!] STAY VIGILANT IN THE DIGITAL SHADOWS
-            </pre>
-          </div>
-        </body>
-        </html>
-        """
+              </pre>
+            </div>
+          </body>
+          </html>
+          """
         return html
+    
+    def get_overall_threat_level(self):
+      """Calculate overall threat level based on risk scores"""
+      if not self.risk_scores:
+        return 'LOW', 'ACCEPTABLE'
+      
+      max_score = max(self.risk_scores.values())
+      avg_score = sum(self.risk_scores.values()) / len(self.risk_scores.values())
+      critical_count = sum(1 for score in self.risk_scores.values() if score >= 9.0)
+      high_count = sum(1 for score in self.risk_scores.values() if score >= 7.0)
+      
+      # Determine threat level
+      if critical_count > 0 or max_score >= 9.0:
+        return 'CRITICAL', 'COMPROMISED'
+      elif high_count > 1 or max_score >= 8.0 or avg_score >= 7.0:
+        return 'HIGH', 'ELEVATED'
+      elif high_count > 0 or max_score >= 7.0 or avg_score >= 5.5:
+        return 'ELEVATED', 'CONCERNING'
+      else:
+        return 'LOW', 'ACCEPTABLE'
 
     def send_notifications(self, ip, results):
         """Send notifications to configured integrations"""
@@ -1165,17 +1186,17 @@ done
 
 def main():
     parser = argparse.ArgumentParser(
-        description='CyberScan Network Penetration Testing Tool',
+        description='Chainsaw Network Penetration Testing Tool',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  python3 cyberscan.py 192.168.1.1
-  python3 cyberscan.py target.com --evasion --api-test
-  python3 cyberscan.py server.com -u admin -p pass --continuous --export-json
-  python3 cyberscan.py site.com --integrations discord_notify --discord-webhook "URL"
-  python3 cyberscan.py 10.0.0.1 --integrations slack_notify ifttt_trigger --slack-webhook "URL" --ifttt-key "KEY" --ifttt-event "alert"
-  python3 cyberscan.py target.com --evasion --api-test --risk-score --export-json --no-browser
-        """
+  Examples: 
+    python3 cyberscan.py 192.168.1.1
+    python3 cyberscan.py target.com --evasion --api-test
+    python3 cyberscan.py server.com -u admin -p pass --continuous --export-json
+    python3 cyberscan.py site.com --integrations discord_notify --discord-webhook "URL"
+    python3 cyberscan.py 10.0.0.1 --integrations slack_notify ifttt_trigger --slack-webhook "URL" --ifttt-key "KEY" --ifttt-event "alert"
+    python3 cyberscan.py target.com --evasion --api-test --risk-score --export-json --no-browser
+          """
     )
   
     # Basic arguments
