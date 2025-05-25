@@ -4,17 +4,19 @@
 2. [CHAINSAW](#chainsaw) - Advanced scan & enumeration
 
 # CHAINSAW
-**Network Security Assessment Tool with auto report generation**
+
+
 ![image](https://github.com/user-attachments/assets/59cac8e8-d20d-43fe-aa38-c139fd220cdb)
+
+**Network Security Assessment Tool with auto report generation**
+---
 
 <img src="https://github.com/user-attachments/assets/858c125a-e15c-47f6-ae04-25b8f47840b1" width="70%" align="center">
 
-<img src="https://github.com/user-attachments/assets/f41c169c-1df8-4748-8e6c-6d05213d8a4a" width="70%" align="center">
-
-
 ## Installation
+(All tools are optionally auto-installed on launch)
+
 ```bash
-sudo apt install -y nmap gobuster nikto feroxbuster smbclient enum4linux crackmapexec evil-winrm testssl.sh redis-tools postgresql-client mysql-client hydra
 git clone https://github.com/lukeswitz/iRecon.git && cd iRecon && chmod +x chainsaw.py
 ```
 
