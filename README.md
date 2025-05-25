@@ -7,7 +7,7 @@
 **Network Security Assessment Tool with auto report generation**
 ![image](https://github.com/user-attachments/assets/59cac8e8-d20d-43fe-aa38-c139fd220cdb)
 
-<img src="https://github.com/user-attachments/assets/d8412899-2e32-4ae6-b907-4b3ce11a09e0" width="70%" align="center">
+<img src="https://github.com/user-attachments/assets/858c125a-e15c-47f6-ae04-25b8f47840b1" width="70%" align="center">
 
 <img src="https://github.com/user-attachments/assets/f41c169c-1df8-4748-8e6c-6d05213d8a4a" width="70%" align="center">
 
