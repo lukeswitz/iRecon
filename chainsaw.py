@@ -892,23 +892,23 @@ ENHANCED_SERVICE_CHECKS = {
     
     # SMB/NetBIOS
     445: {
-        'name': 'SMB',
-        'risk_base': 8.0,
-        'anon': [
-            'smbclient -L //{ip}/ -N --timeout=10',
-            'nxc smb {ip} --shares -u "" -p "" --timeout 10',
-            'nmap --script=smb-os-discovery -p 445 {ip}'
-        ],
-        'auth': 'nxc smb {ip} -u {user} -p {pass} --shares',
-        'enum': [
-            'enum4linux -a {ip}',
-            'nmap --script=smb-* -p 445 {ip}',
-            'smbmap -H {ip} -u null'
-        ],
-        'fallback': [
-            'rpcclient -U "{user}%{pass}" {ip}',
-            'python3 -c "import subprocess; subprocess.run([\'impacket-smbexec\', \'{user}:{pass}@{ip}\'])"'
-        ]
+      'name': 'SMB',
+      'risk_base': 9.0,
+      'anon': [
+        'smbclient -L //{ip}/ -N --timeout=10',
+        'nxc smb {ip} --shares -u "" -p ""',  # Removed --timeout
+        'nmap --script=smb-os-discovery -p 445 {ip}'
+      ],
+      'auth': 'nxc smb {ip} -u {user} -p {pass} --shares',
+      'enum': [
+        'enum4linux -a {ip}',
+        'nmap --script=smb-* -p 445 {ip}',
+        'smbmap -H {ip} -u null'
+      ],
+      'fallback': [
+        'rpcclient -U "" -N {ip}',  # Added -N flag
+        'python3 -c "import subprocess; subprocess.run([\'impacket-smbexec\', \'{user}:{pass}@{ip}\'])"'
+      ]
     },
     
     # Remote access
@@ -1027,10 +1027,10 @@ ENHANCED_SERVICE_CHECKS = {
       'name': 'DNS',
       'risk_base': 6.0,
       'enum': [
-        'nslookup {ip}',
+        'nslookup -type=any {ip} {ip}',
         'dig @{ip} version.bind chaos txt',
         'nmap --script=dns-* -p 53 {ip}',
-        'dnsrecon -d {ip} -n {ip}'
+        # 'dnsrecon -n {ip} -d example.com',  # Remove or fix domain
       ],
       'fallback': ['nc -v {ip} 53']
     },
@@ -1041,8 +1041,11 @@ ENHANCED_SERVICE_CHECKS = {
       'risk_base': 7.0,
       'enum': [
         'nmap --script=krb5-enum-users -p 88 {ip}',
-        'kerbrute userenum --dc {ip} {users}',
-        'nxc ldap {ip} -u "" -p "" --asreproast'
+        'nxc ldap {ip} -u "" -p ""',
+      ],
+      'auth': [
+        'nxc ldap {ip} -u {user} -p {pass} --asreproast /tmp/asrep_{ip}.txt',  # Fixed syntax
+        'nxc ldap {ip} -u {user} -p {pass} --kerberoasting /tmp/kerb_{ip}.txt'
       ],
       'fallback': ['nc -v {ip} 88']
     },
@@ -1073,7 +1076,7 @@ ENHANCED_SERVICE_CHECKS = {
       'risk_base': 7.0,
       'enum': [
         'nmap --script=rpc-* -p 593 {ip}',
-        'rpcclient -U "" {ip}'
+        'rpcclient -U "" -N {ip}'  # Added -N flag
       ],
       'fallback': ['nc -v {ip} 593']
     },
@@ -1083,22 +1086,22 @@ ENHANCED_SERVICE_CHECKS = {
       'name': 'LDAPS',
       'risk_base': 6.5,
       'enum': [
-        'ldapsearch -x -H ldaps://{ip} -s base',
+        'ldapsearch -x -H ldaps://{ip} -s base -o ldif-wrap=no -o tls_reqcert=never',  # Ignore certs
         'nmap --script=ssl-cert -p 636 {ip}',
         'nxc ldap {ip} -u "" -p ""'
       ],
-      'fallback': ['openssl s_client -connect {ip}:636']
+      'fallback': ['openssl s_client -connect {ip}:636 -verify_return_error']
     },
   
     # Global Catalog
-    3268: {
-      'name': 'Global-Catalog',
+    3269: {
+      'name': 'Global-Catalog-SSL',
       'risk_base': 6.0,
       'enum': [
-        'ldapsearch -x -H ldap://{ip}:3268 -s base',
-        'nmap --script=ldap-* -p 3268 {ip}'
+        'ldapsearch -x -H ldaps://{ip}:3269 -s base -o tls_reqcert=never',  # Ignore certs
+        'nmap --script=ldap-* -p 3269 {ip}'
       ],
-      'fallback': ['nc -v {ip} 3268']
+      'fallback': ['openssl s_client -connect {ip}:3269']
     },
   
     3269: {
@@ -1126,16 +1129,18 @@ ENHANCED_SERVICE_CHECKS = {
     },
     
     389: {
-        'name': 'LDAP',
+        'name': 'LDAP', 
         'risk_base': 6.5,
         'anon': [
-            'ldapsearch -x -H ldap://{ip} -s base',
-            'crackmapexec ldap {ip} --timeout 10'
+          'ldapsearch -x -H ldap://{ip} -s base',
+          'nxc ldap {ip} -u "" -p ""'  # Simplified
         ],
-        'fallback': [
-            'nmap --script=ldap-* -p 389 {ip}'
-        ]
-    }
+        'auth': [
+          'nxc ldap {ip} -u {user} -p {pass}',
+          'ldapsearch -x -H ldap://{ip} -D "{user}@domain" -w {pass}'  # Need domain
+        ],
+        'fallback': ['nmap --script=ldap-* -p 389 {ip}']
+      }
 }
 
 GENERIC_CHECKS = {
@@ -1387,33 +1392,20 @@ class CyberScanner:
         
         print(f"[*] Testing port {port} ({config.get('name', 'Unknown')})...")
         
-        # Skip API testing message fix
-        if port in [80, 443, 8080, 8443] and self.args.api_test:
-          print(f"[*] Running API endpoint tests on port {port}...")
-          api_results = self.test_api_endpoints(ip, port)
-          results.extend(api_results)
-          
-        # Run standard checks with LONGER TIMEOUTS
+        # Run standard checks with validation
         for check_type in ['anon', 'auth', 'enum']:
           if check_type in config:
             print(f"[*] Running {check_type} checks on port {port}...")
             checks = config[check_type] if isinstance(config[check_type], list) else [config[check_type]]
             
             # VALIDATE COMMANDS BEFORE EXECUTION
-            validated_checks = []
-            for check in checks:
-              tool = check.split()[0]
-              if shutil.which(tool) or tool in ['python3', 'openssl', 'nc', 'telnet']:
-                validated_checks.append(check)
-              else:
-                print(f"[!] Tool not found: {tool}")
-                
+            validated_checks = self.validate_and_fallback_commands(checks, replacements)
+            
             if not validated_checks:
               print(f"[!] No valid tools for {check_type} checks on port {port}")
               continue
             
-            # Execute with proper threading and longer timeouts
-            with ThreadPoolExecutor(max_workers=3) as executor:  # Reduced workers
+            with ThreadPoolExecutor(max_workers=3) as executor:
               futures = []
               for check in validated_checks:
                 if check_type == 'auth' and (not user or not password):
@@ -1421,10 +1413,10 @@ class CyberScanner:
                   continue
                 processed_cmd = check.format(**replacements)
                 print(f"[*] Executing: {processed_cmd}")
-                future = executor.submit(self.run_cmd_enhanced, processed_cmd, timeout=60)  # LONGER TIMEOUT
+                future = executor.submit(self.run_cmd_enhanced, processed_cmd, timeout=45)
                 futures.append(future)
                 
-              for future in as_completed(futures, timeout=90):  # LONGER COMPLETION TIMEOUT
+              for future in as_completed(futures, timeout=60):
                 try:
                   result = future.result(timeout=5)
                   if result['success']:
@@ -1434,6 +1426,7 @@ class CyberScanner:
                   results.append(result)
                 except Exception as e:
                   print(f"[!] Tool execution error: {str(e)}")
+                  
                   
         # Only run fallbacks if NO successes (not just enum failures)
         if 'fallback' in config and not any(res.get('success', False) for res in results):
@@ -1835,7 +1828,7 @@ class CyberScanner:
         # Generate report
         report = self.generate_enhanced_report(self.results, self.args.ip)
         timestamp = datetime.now().strftime('%Y%m%d%H%M')
-        filename = f"chainsasw_{self.args.ip}_{timestamp}.html"
+        filename = f"chainsaw_{self.args.ip}_{timestamp}.html"
         
         with open(filename, 'w', encoding='utf-8') as f:
           self.shutdown_handler.add_cleanup_file(filename)
@@ -1869,6 +1862,36 @@ done
             f.write(monitor_script)
         os.chmod(monitor_filename, 0o755)
         print(f"[+] Continuous monitoring script created: {monitor_filename}")
+        
+    def validate_and_fallback_commands(self, commands, replacements):
+      """Validate tools exist and provide fallbacks"""
+      validated_commands = []
+      
+      # Tools that commonly fail and their fallbacks
+      tool_fallbacks = {
+        'kerbrute': f'nmap --script=krb5-enum-users -p 88 {replacements["ip"]}',
+        'dnsrecon': f'nmap --script=dns-* -p 53 {replacements["ip"]}',
+        'crackmapexec': f'nxc',  # crackmapexec is now nxc
+      }
+      
+      for cmd in commands:
+        tool = cmd.split()[0]
+        
+        # Handle tool aliases
+        if tool == 'crackmapexec':
+          cmd = cmd.replace('crackmapexec', 'nxc', 1)
+          tool = 'nxc'
+          
+        # Check if tool exists
+        if shutil.which(tool):
+          validated_commands.append(cmd)
+        elif tool in tool_fallbacks:
+          print(f"[!] {tool} not found, using fallback")
+          validated_commands.append(tool_fallbacks[tool])
+        else:
+          print(f"[!] Skipping missing tool: {tool}")
+          
+      return validated_commands
 
 def main():
     # Check and install tools first
