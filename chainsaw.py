@@ -181,7 +181,7 @@ TERMINAL_CSS = f"""
     }}
     
     .terminal-header::before {{
-        content: "▲▼▲▼ CYBERSCAN NETWORK ANALYSIS ▲▼▲▼";
+        content: "▲▼▲▼ CHAINSAW NETWORK ANALYSIS ▲▼▲▼";
         position: absolute;
         top: -20px;
         left: 30px;
@@ -510,10 +510,10 @@ GENERIC_CHECKS = {
 
 # Integration configurations
 INTEGRATION_COMMANDS = {
-    'slack_notify': 'curl -X POST -H "Content-type: application/json" --data \'{"text":"🔥 CyberScan complete for {ip} - {critical_count} critical findings"}\' {slack_webhook}',
+    'slack_notify': 'curl -X POST -H "Content-type: application/json" --data \'{"text":"🔥 Scan complete for {ip} - {critical_count} critical findings"}\' {slack_webhook}',
     'jira_ticket': 'curl -X POST -u {jira_user}:{jira_token} -H "Content-Type: application/json" --data \'{"fields": {"project": {"key": "SEC"}, "summary": "Security vulnerabilities found on {ip}", "description": "Automated scan found {total_issues} issues"}}\' {jira_url}/rest/api/2/issue/',
-    'teams_notify': 'curl -X POST -H "Content-Type: application/json" --data \'{"text": "CyberScan Alert: {critical_count} critical vulnerabilities found on {ip}"}\' {teams_webhook}',
-    'discord_notify': 'curl -X POST -H "Content-Type: application/json" --data \'{"embeds": [{"title": "🔥 CyberScan Alert", "description": "Target: {ip}\\nCritical Issues: {critical_count}\\nTotal Issues: {total_issues}", "color": 15548997, "footer": {"text": "CyberScan Network Analysis"}}]}\' {discord_webhook}',
+    'teams_notify': 'curl -X POST -H "Content-Type: application/json" --data \'{"text": "Chainsaw Alert: {critical_count} critical vulnerabilities found on {ip}"}\' {teams_webhook}',
+    'discord_notify': 'curl -X POST -H "Content-Type: application/json" --data \'{"embeds": [{"title": "🔥 Chainsaw Alert", "description": "Target: {ip}\\nCritical Issues: {critical_count}\\nTotal Issues: {total_issues}", "color": 15548997, "footer": {"text": "Chainsaw Network Analysis"}}]}\' {discord_webhook}',
     'ifttt_trigger': 'curl -X POST -H "Content-Type: application/json" --data \'{"value1": "{ip}", "value2": "{critical_count}", "value3": "{total_issues}"}\' https://maker.ifttt.com/trigger/{ifttt_event}/with/key/{ifttt_key}'
 }
 
@@ -542,7 +542,6 @@ class CyberScanner:
                             ────────────────────────────────────────
     {chr(27)}[0m
             """
-        print(banner_text)
         print(banner_text)
         
     def run_cmd_enhanced(self, cmd, timeout=30):
@@ -1010,7 +1009,7 @@ class CyberScanner:
             'executive_summary': exec_summary
           }
           
-          json_filename = f"cyberscan_{ip}_{datetime.now().strftime('%Y%m%d%H%M')}.json"
+          json_filename = f"chainsaw_{ip}_{datetime.now().strftime('%Y%m%d%H%M')}.json"
           with open(json_filename, 'w') as f:
             json.dump(json_data, f, indent=2, default=str)
             
@@ -1171,14 +1170,14 @@ class CyberScanner:
     def setup_continuous_monitoring(self):
         """Setup continuous monitoring for target"""
         monitor_script = f"""#!/bin/bash
-# Cyberscan Continuous Monitor for {self.args.ip}
+# Chainsaw Continuous Monitor for {self.args.ip}
 while true; do
     echo "[$(date)] Running continuous scan..."
     python3 {os.path.abspath(__file__)} {self.args.ip} --no-browser
     sleep 3600  # Run every hour
 done
 """
-        monitor_filename = f"cyberscan_monitor_{self.args.ip}.sh"
+        monitor_filename = f"chainsaw_monitor_{self.args.ip}.sh"
         with open(monitor_filename, 'w') as f:
             f.write(monitor_script)
         os.chmod(monitor_filename, 0o755)
@@ -1190,12 +1189,12 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
   Examples: 
-    python3 cyberscan.py 192.168.1.1
-    python3 cyberscan.py target.com --evasion --api-test
-    python3 cyberscan.py server.com -u admin -p pass --continuous --export-json
-    python3 cyberscan.py site.com --integrations discord_notify --discord-webhook "URL"
-    python3 cyberscan.py 10.0.0.1 --integrations slack_notify ifttt_trigger --slack-webhook "URL" --ifttt-key "KEY" --ifttt-event "alert"
-    python3 cyberscan.py target.com --evasion --api-test --risk-score --export-json --no-browser
+    python3 chainsaw.py 192.168.1.1
+    python3 chainsaw.py target.com --evasion --api-test
+    python3 chainsaw.py server.com -u admin -p pass --continuous --export-json
+    python3 chainsaw.py site.com --integrations discord_notify --discord-webhook "URL"
+    python3 chainsaw.py 10.0.0.1 --integrations slack_notify ifttt_trigger --slack-webhook "URL" --ifttt-key "KEY" --ifttt-event "alert"
+    python3 chainsaw.py target.com --evasion --api-test --risk-score --export-json --no-browser
           """
     )
   
