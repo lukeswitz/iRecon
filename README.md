@@ -1,170 +1,60 @@
 # Auto Recon Scanners
 
-1. [iRecon](#irecon) nmap report
-2. [CyScan](#cyscan) scan & enumeration
+1. [iRecon](#irecon) - Simple `nmap` Report
+2. [CHAINSAW](#chainsaw) - Advanced scan & enumeration
 
-# CyScan 
+# CHAINSAW
+**Network Security Assessment Tool with auto report generation**
+![image](https://github.com/user-attachments/assets/59cac8e8-d20d-43fe-aa38-c139fd220cdb)
 
-Next-gen penetration testing automation with adaptive enumeration. Based on iRecon. 
+<img src="https://github.com/user-attachments/assets/d8412899-2e32-4ae6-b907-4b3ce11a09e0" width="70%" align="center">
+
+<img src="https://github.com/user-attachments/assets/f41c169c-1df8-4748-8e6c-6d05213d8a4a" width="70%" align="center">
+
+
+## Installation
+```bash
+sudo apt install -y nmap gobuster nikto feroxbuster smbclient enum4linux crackmapexec evil-winrm testssl.sh redis-tools postgresql-client mysql-client hydra
+git clone https://github.com/lukeswitz/iRecon.git && cd iRecon && chmod +x chainsaw.py
+```
+
+## Usage
+`bashpython3 chainsaw.py <target> [options]`
+
+### Examples
+```bash
+python3 chainsaw.py 192.168.1.1
+python3 chainsaw.py target.com --evasion --api-test --export-json
+python3 chainsaw.py server.com -u admin -p pass --continuous
+python3 chainsaw.py site.com --integrations discord_notify --discord-webhook "URL"
+```
+
+### Key Options
+```bash
+--evasion - Stealth techniques
+--api-test - API endpoint testing
+--continuous - 24/7 monitoring
+--export-json - JSON output
+--integrations - Slack/Discord/Teams/IFTTT/Jira notifications
+```
 
 ## Features
 
-- 🔍 **Smart Port Discovery** with Nmap integration
-- 🛡 **Protocol-Specific Tactics** for 20+ services
-- 🔄 **Adaptive Fallbacks** with tool alternatives
-- 🔑 **Credential Testing** with CrackMapExec/Impacket
-- 📊 **Holographic HTML Reports** with scan artifacts
-- ⚡ **Parallel Execution** engine
+- 20+ service tests (FTP, SSH, HTTP, SMB, databases, containers)
+- Risk scoring (0-10 CVSS-like scale)
+- Attack path analysis (lateral movement, privilege escalation)
+- HTML reports with executive summaries
+- Multi-platform notifications and SIEM integration
 
-## Installation
 
-### Core Requirements
-```bash
-# Kali Linux Base
-sudo apt update && sudo apt install -y \
-  nmap crackmapexec gobuster feroxbuster \
-  smbclient evil-winrm snmp ldap-utils \
-  mysql-client postgresql-client xfreerdp \
-  socat python3-pip
+## Output
 
-# Impacket (Python)
-git clone https://github.com/SecureAuthCorp/impacket.git
-cd impacket && pip install . && cd ..
-```
-
-### Optional Enhancements
-```bash
-# Enhanced Wordlists
-sudo apt install -y seclists wordlists
-```
-
-### Get CyScan
-```bash
-git clone https://github.com/lukeswitz/iRecon.git
-cd iRecon
-chmod +x cyberscan.py
-```
-
-## Operational Manual
-
-### Basic Reconnaissance
-```bash
-./cyberscan.py 10.0.0.1
-```
-
-### Credential Assault
-```bash
-./cyberscan.py 10.0.0.1 -u admin -p 'P@ssw0rd!'
-```
-
-### Custom Enumeration
-```bash
-./cyberscan.py 10.0.0.1 \
-  --wordlist ~/nuke_list.txt \
-  --users ~/corp_users.txt \
-  --passwords ~/breached_pass.txt
-```
-
-### Output System
-- HTML report: `cyberscan_<TARGET>_<TIMESTAMP>.html`
-- Auto-launches in default browser
-- Full command output preservation
-
-## Service Matrix
-
-| Port  | Protocol      | Assault Vectors                          |
-|-------|---------------|------------------------------------------|
-| 21    | FTP           | Anonymous auth, Wget mirroring           |
-| 22    | SSH           | Hydra integration, Security audits       |  
-| 80    | HTTP          | Dual directory busting, Nikto scans      |
-| 443   | HTTPS         | SSL/TLS analysis, Content discovery      |
-| 445   | SMB           | Share storming, Impacket toolchain       |
-| 3389  | RDP           | FreeRDP testing, Credential spraying     |
-| 5985  | WinRM         | PowerShell remoting, WMI fallbacks       |
-| 3306  | MySQL         | Database dumping, Auth testing           |
-| 5432  | PostgreSQL    | Schema extraction, Cred attacks          |
-| 161   | SNMP          | Community string brute-forcing           |
-| 389   | LDAP          | Anonymous binds, Schema mapping          |
-
-## Adaptive Fallback System
-
-1. **Primary Tactics**  
-   Protocol-specific ideal commands
-
-2. **Secondary Measures**  
-   Alternative tools/methods
-
-3. **Nuclear Options**  
-   Raw socket manipulation  
-   SSL/TLS fingerprint forging  
-   Impacket "getsystem" equivalents
-
-## Customization Guide
-
-### Wordlist Management
-```bash
-# Use custom lists
-./cyberscan.py 10.0.0.1 \
-  --wordlist ~/custom/dirs.txt \
-  --users ~/custom/users.txt \
-  --passwords ~/custom/pass.txt
-
-# Default Paths (modify in script):
-DEFAULT_WORDLISTS = {
-    'dirbuster': '/usr/share/seclists/Discovery/Web-Content/raft-large-words.txt',
-    'feroxbuster': '/usr/share/wordlists/dirb/big.txt',
-    'snmp': '/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt'
-}
-```
-
-### Timeout Configuration
-```python
-# In run_cmd() function:
-timeout=30  # ← Adjust scan command timeout
-```
-
-## Compliance
-
-🚨 **Legal Imperative**  
-CyScan shall only be deployed against systems with explicit written authorization. Unauthorized network intrusion violates international cyber laws. By executing CyScan, you affirm legal right to test the target system
-
-## QRG (Quick Reference Guide)
-
-### Error: Missing Tools
-```bash
-# Verify PATH contains:
-which nmap crackmapexec gobuster feroxbuster
-```
-
-### Scan Too Slow?
-```python
-# Reduce thread workers:
-ThreadPoolExecutor(max_workers=5)  # ← Default is 10
-```
-
-### Command Failures
-```bash
-# Test impacket installation:
-python3 -m impacket.examples.smbexec
-```
-
-### Report Issues
-```bash
-# Enable debug mode (add to script):
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
+- Interactive HTML reports with animations
+- JSON export for automation/SIEM
+- Real-time console progress
+- Executive summaries for management
 
 ---
-
-![CyScan Matrix](https://i.imgur.com/3Yh7B2G.gif)  
-*"The scanner that adapts like a human operator" - BlackHat EU 2024*
-
-
----
-
-**Happy (Ethical) Hacking!** 🎮🔓
-
 
 # iRecon
 
