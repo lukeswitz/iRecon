@@ -1,7 +1,9 @@
-# Recon Scanners
+## Recon & Report
 
-1. **[iRecon](#irecon) - Simple `nmap` scan and report, the basis of chainsaw.** 
-2. **[CHAINSAW](#chainsaw) - Advanced enumeration.**
+### Tooling
+
+1. **[iRecon](#irecon) - `nmap` scan, the basis of chainsaw.** 
+2. **[CHAINSAW](#chainsaw) - Advanced enumeration & report**
 
 # CHAINSAW
 
@@ -18,6 +20,24 @@
 ```bash
 git clone https://github.com/lukeswitz/iRecon.git && cd iRecon && chmod +x chainsaw.py
 ```
+## Tools Used
+
+This script utilizes the following external tools:
+
+*   **nmap**
+*   **gobuster**
+*   **nikto**
+*   **feroxbuster**
+*   **smbclient**
+*   **enum4linux**
+*   **crackmapexec**
+*   **nxc**
+*   **evil-winrm**
+*   **testssl**
+*   **redis-cli**
+*   **mysql**
+*   **psql**
+*   **hydra**
 
 ## Usage
 `python3 chainsaw.py <target> [options]`
