@@ -316,46 +316,28 @@ def install_macos_tools(missing_tools):
     print("\n[+] macOS tool installation complete!")
     
 def install_seclists_macos():
-    """Install SecLists wordlists to /usr/share/wordlists on macOS"""
-    seclists_path = "/usr/share/wordlists/seclists"
+    """Install SecLists wordlists to user directory on macOS (no sudo needed)"""
+    user_wordlists = os.path.expanduser("~/.chainsaw/wordlists")
+    seclists_path = os.path.join(user_wordlists, "seclists")
     
     # Check if already installed
     if os.path.exists(seclists_path):
       print(f"[+] SecLists already installed at {seclists_path}")
       return True
     
-    print("[*] Installing SecLists wordlists...")
+    print("[*] Installing SecLists wordlists to user directory...")
     
     try:
-      # Create wordlists directory structure
-      os.system("sudo mkdir -p /usr/share/wordlists")
+      # Create wordlists directory
+      os.makedirs(user_wordlists, exist_ok=True)
       
-      # Clone SecLists
-      clone_cmd = f"sudo git clone https://github.com/danielmiessler/SecLists.git {seclists_path}"
+      # Clone SecLists to user directory (no sudo needed)
+      clone_cmd = f"git clone --depth 1 https://github.com/danielmiessler/SecLists.git {seclists_path}"
       print(f"[*] Running: {clone_cmd}")
       result = os.system(clone_cmd)
       
       if result == 0:
-        # Set proper permissions
-        os.system(f"sudo chmod -R 755 {seclists_path}")
-        os.system(f"sudo chown -R root:wheel {seclists_path}")
-        
         print(f"[+] SecLists installed successfully to {seclists_path}")
-        
-        # Verify key wordlists exist
-        key_lists = [
-          f"{seclists_path}/Discovery/Web-Content/directory-list-2.3-medium.txt",
-          f"{seclists_path}/Discovery/Web-Content/raft-large-directories.txt",
-          f"{seclists_path}/Discovery/Web-Content/api/api-endpoints.txt",
-          f"{seclists_path}/Discovery/DNS/subdomains-top1million-5000.txt"
-        ]
-        
-        missing_lists = [lst for lst in key_lists if not os.path.exists(lst)]
-        if missing_lists:
-          print(f"[!] Some wordlists missing: {missing_lists}")
-        else:
-          print("[+] All key wordlists verified!")
-          
         return True
       else:
         print("[!] Failed to clone SecLists")
@@ -365,29 +347,84 @@ def install_seclists_macos():
       print(f"[!] Error installing SecLists: {str(e)}")
       return False
   
+def download_specific_wordlists():
+    """Download only the wordlists we actually use"""
+    wordlist_dir = os.path.expanduser("~/.chainsaw/wordlists")
+    os.makedirs(wordlist_dir, exist_ok=True)
+    
+    # Direct URLs to specific wordlists we use
+    wordlist_urls = {
+      'directory-list-2.3-medium.txt': 'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/directory-list-2.3-medium.txt',
+      'raft-large-directories.txt': 'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/raft-large-directories.txt',
+      'api-endpoints.txt': 'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/api/api-endpoints.txt',
+      'subdomains-top1million-5000.txt': 'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/DNS/subdomains-top1million-5000.txt',
+      'common-snmp-community-strings.txt': 'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/SNMP/common-snmp-community-strings.txt',
+      'top-usernames-shortlist.txt': 'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Usernames/top-usernames-shortlist.txt',
+      'top-100-passwords.txt': 'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Passwords/Common-Credentials/10-million-password-list-top-100.txt'
+    }
+    
+    print("[*] Downloading essential wordlists...")
+    downloaded = 0
+    
+    for filename, url in wordlist_urls.items():
+      filepath = os.path.join(wordlist_dir, filename)
+      
+      # Skip if already exists
+      if os.path.exists(filepath):
+        print(f"[+] {filename} already exists")
+        downloaded += 1
+        continue
+      
+      try:
+        print(f"[*] Downloading {filename}...")
+        import urllib.request
+        urllib.request.urlretrieve(url, filepath)
+        
+        # Verify download worked
+        if os.path.exists(filepath) and os.path.getsize(filepath) > 100:
+          print(f"[+] Downloaded {filename} ({os.path.getsize(filepath)} bytes)")
+          downloaded += 1
+        else:
+          print(f"[!] Failed to download {filename}")
+          
+      except Exception as e:
+        print(f"[!] Error downloading {filename}: {str(e)}")
+        
+    if downloaded >= 4:  # At least got the key ones
+      print(f"[+] Successfully downloaded {downloaded}/{len(wordlist_urls)} wordlists")
+      return True
+    else:
+      print(f"[!] Only downloaded {downloaded}/{len(wordlist_urls)} wordlists")
+      return False
+    
 def setup_macos_wordlists():
-    """Setup wordlist paths for macOS"""
+    """Setup wordlist paths for macOS with targeted downloads"""
     global DEFAULT_WORDLISTS
     
-    # Try to install SecLists if not present
-    seclists_installed = install_seclists_macos()
+    wordlist_dir = os.path.expanduser("~/.chainsaw/wordlists")
     
-    if seclists_installed:
-      # Update wordlist paths to use SecLists
+    # Try to download specific wordlists
+    download_success = download_specific_wordlists()
+    
+    if download_success:
+      # Update paths to use downloaded wordlists
       DEFAULT_WORDLISTS.update({
-        'dirbuster': '/usr/share/wordlists/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt',
-        'feroxbuster': '/usr/share/wordlists/seclists/Discovery/Web-Content/raft-large-directories.txt',
-        'api': '/usr/share/wordlists/seclists/Discovery/Web-Content/api/api-endpoints.txt',
-        'subdomains': '/usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt',
-        'snmp': '/usr/share/wordlists/seclists/Discovery/SNMP/common-snmp-community-strings.txt',
-        'users': '/usr/share/wordlists/seclists/Usernames/top-usernames-shortlist.txt',
-        'passwords': '/usr/share/wordlists/seclists/Passwords/Common-Credentials/10-million-password-list-top-100.txt'
+        'dirbuster': os.path.join(wordlist_dir, 'directory-list-2.3-medium.txt'),
+        'feroxbuster': os.path.join(wordlist_dir, 'raft-large-directories.txt'),
+        'api': os.path.join(wordlist_dir, 'api-endpoints.txt'),
+        'subdomains': os.path.join(wordlist_dir, 'subdomains-top1million-5000.txt'),
+        'snmp': os.path.join(wordlist_dir, 'common-snmp-community-strings.txt'),
+        'users': os.path.join(wordlist_dir, 'top-usernames-shortlist.txt'),
+        'passwords': os.path.join(wordlist_dir, 'top-100-passwords.txt')
       })
-      print("[+] Updated wordlist paths to use SecLists")
+      print("[+] Updated wordlist paths to use downloaded SecLists")
     else:
       # Fallback to basic wordlists
-      print("[!] Using fallback wordlists...")
+      print("[!] Download failed, creating basic wordlists...")
       create_basic_wordlists()
+      
+    return check_wordlists()
+    
     
 def create_basic_wordlists():
     """Create basic wordlists if SecLists not available"""
@@ -403,47 +440,53 @@ def create_basic_wordlists():
       'var', 'web', 'www', '.git', '.env', 'robots.txt', 'sitemap.xml'
     ]
     
-    basic_dir_file = os.path.join(wordlist_dir, 'basic-directories.txt')
-    with open(basic_dir_file, 'w') as f:
-      f.write('\n'.join(basic_dirs))
-      
-    # Create basic API endpoints
-    basic_api = [
-      '/api/v1/', '/api/v2/', '/api/', '/graphql', '/swagger/', '/health',
-      '/status', '/metrics', '/admin/', '/debug/', '/dev/', '/.well-known/',
-      '/actuator/', '/management/'
+    # Create basic subdomain list
+    basic_subdomains = [
+      'www', 'mail', 'ftp', 'localhost', 'webmail', 'smtp', 'pop', 'ns1', 'webdisk',
+      'ns2', 'cpanel', 'whm', 'autodiscover', 'autoconfig', 'ns3', 'm', 'test',
+      'admin', 'dev', 'staging', 'api', 'blog', 'shop', 'support', 'secure'
     ]
     
-    basic_api_file = os.path.join(wordlist_dir, 'basic-api.txt')
-    with open(basic_api_file, 'w') as f:
-      f.write('\n'.join(basic_api))
-      
+    # Write wordlists
+    files_to_create = {
+      'basic-directories.txt': basic_dirs,
+      'basic-api.txt': ['/api/v1/', '/api/v2/', '/api/', '/graphql', '/swagger/', '/health', '/status', '/metrics'],
+      'basic-subdomains.txt': basic_subdomains,
+      'basic-users.txt': ['admin', 'administrator', 'root', 'user', 'test'],
+      'basic-passwords.txt': ['password', '123456', 'admin', 'root', 'password123']
+    }
+    
+    for filename, content in files_to_create.items():
+      filepath = os.path.join(wordlist_dir, filename)
+      with open(filepath, 'w') as f:
+        f.write('\n'.join(content))
+        
     # Update DEFAULT_WORDLISTS to use basic lists
     DEFAULT_WORDLISTS.update({
-      'dirbuster': basic_dir_file,
-      'feroxbuster': basic_dir_file,
-      'api': basic_api_file,
-      'snmp': basic_dir_file,  # Fallback
-      'users': basic_dir_file,  # Fallback
-      'passwords': basic_dir_file  # Fallback
+      'dirbuster': os.path.join(wordlist_dir, 'basic-directories.txt'),
+      'feroxbuster': os.path.join(wordlist_dir, 'basic-directories.txt'),
+      'api': os.path.join(wordlist_dir, 'basic-api.txt'),
+      'subdomains': os.path.join(wordlist_dir, 'basic-subdomains.txt'),
+      'snmp': os.path.join(wordlist_dir, 'basic-directories.txt'),
+      'users': os.path.join(wordlist_dir, 'basic-users.txt'),
+      'passwords': os.path.join(wordlist_dir, 'basic-passwords.txt')
     })
     
     print(f"[+] Created basic wordlists in {wordlist_dir}")
   
 def check_wordlists():
-    """Check if wordlists exist and are accessible"""
-    missing_lists = []
+    """Verify wordlists exist and show sizes"""
+    print("[*] Verifying wordlists...")
     
     for name, path in DEFAULT_WORDLISTS.items():
-      if not os.path.exists(path):
-        missing_lists.append((name, path))
+      if os.path.exists(path):
+        size = os.path.getsize(path)
+        lines = sum(1 for _ in open(path)) if size < 50000000 else "Large file"  # Don't count huge files
+        print(f"[+] {name}: {os.path.basename(path)} ({size} bytes, {lines} entries)")
+      else:
+        print(f"[!] Missing: {name} -> {path}")
         
-    if missing_lists:
-      print(f"[!] Missing wordlists: {[name for name, _ in missing_lists]}")
-      return False
-    else:
-      print("[+] All wordlists accessible!")
-      return True
+    return True
     
 def create_docker_wrappers():
     """Create wrapper scripts for Docker-based tools"""
@@ -769,7 +812,7 @@ ENHANCED_SERVICE_CHECKS = {
         'name': 'FTP',
         'risk_base': 6.5,
         'anon': [
-            'curl -v ftp://{ip} --max-time 10',
+            'curl -v ftp://{ip} --max-time 20',
             'ftp -inv {ip} <<< "user anonymous anonymous"',
             'nmap --script=ftp-anon -p 21 {ip}'
         ],
@@ -802,9 +845,9 @@ ENHANCED_SERVICE_CHECKS = {
         'risk_base': 3.0,
         'enum': [
             'gobuster dir -u http://{ip} -w {dirbuster_wordlist} -t 50 --timeout 10s',
-            'nikto -h http://{ip} -timeout 10',
+            'nikto -h http://{ip} -timeout 40',
             'whatweb -a3 http://{ip}',
-            'curl -I http://{ip} --max-time 5'
+            'curl -I http://{ip} --max-time 15'
         ],
         'fallback': [
             'feroxbuster -u http://{ip} -w {ferox_wordlist} -t 50'
@@ -817,7 +860,7 @@ ENHANCED_SERVICE_CHECKS = {
           'enum': [
               'testssl.sh --fast https://{ip}:443',
               'gobuster dir -u https://{ip} -w {dirbuster_wordlist} -k -t 50',
-              'curl -I https://{ip} -k --max-time 5'
+              'curl -I https://{ip} -k --max-time 15'
             ],
             'fallback': [
               'nmap --script=ssl-* -p 443 {ip}'  # Fallback if testssl.sh fails
@@ -827,10 +870,10 @@ ENHANCED_SERVICE_CHECKS = {
     # Alternative HTTP ports
     8080: {
         'name': 'HTTP-Proxy',
-        'risk_base': 5.0,
+        'risk_base': 6.0,
         'enum': [
             'gobuster dir -u http://{ip}:8080 -w {dirbuster_wordlist} -t 50',
-            'curl -I http://{ip}:8080 --max-time 5',
+            'curl -I http://{ip}:8080 --max-time 15',
             'gobuster dir -u http://{ip}:8080/api -w {api_wordlist} -t 50'
         ],
         'fallback': [
@@ -843,14 +886,14 @@ ENHANCED_SERVICE_CHECKS = {
         'risk_base': 6.0,
         'enum': [
             'testssl.sh {ip}:8443 --fast',
-            'curl -I https://{ip}:8443 -k --max-time 5'
+            'curl -I https://{ip}:8443 -k --max-time 15'
         ]
     },
     
     # SMB/NetBIOS
     445: {
         'name': 'SMB',
-        'risk_base': 7.0,
+        'risk_base': 8.0,
         'anon': [
             'smbclient -L //{ip}/ -N --timeout=10',
             'nxc smb {ip} --shares -u "" -p "" --timeout 10',
@@ -948,8 +991,8 @@ ENHANCED_SERVICE_CHECKS = {
         'name': 'Elasticsearch',
         'risk_base': 8.5,
         'anon': [
-            'curl http://{ip}:9200/_cluster/health --max-time 5',
-            'curl http://{ip}:9200/_cat/indices --max-time 5'
+            'curl http://{ip}:9200/_cluster/health --max-time 15',
+            'curl http://{ip}:9200/_cat/indices --max-time 15'
         ],
         'enum': [
             'nmap --script=http-elasticsearch-info -p 9200 {ip}'
@@ -962,7 +1005,7 @@ ENHANCED_SERVICE_CHECKS = {
         'risk_base': 9.5,
         'anon': [
             'docker -H tcp://{ip}:2375 info',
-            'curl http://{ip}:2375/version --max-time 5'
+            'curl http://{ip}:2375/version --max-time 15'
         ],
         'enum': [
             'docker -H tcp://{ip}:2375 ps -a',
@@ -1011,12 +1054,12 @@ GENERIC_CHECKS = {
     'risk_base': 5.0,
     'enum': [
         'nc -v -n -w 5 {ip} {port}',
-        'curl -I http://{ip}:{port} --max-time 5',
+        'curl -I http://{ip}:{port} --max-time 15',
         'nmap -sV -p {port} --script="banner,(safe or default) and not broadcast" {ip}'
     ],
     'fallback': [
         'telnet {ip} {port}',
-        'socat - TCP:{ip}:{port},connect-timeout=5'
+        'socat - TCP:{ip}:{port},connect-timeout=15'
     ]
 }
 
@@ -1039,23 +1082,36 @@ class CyberScanner:
         self.shutdown_handler = GracefulShutdown() 
         
     def banner(self):
+        """Display enhanced cyberpunk banner with error handling"""
         banner_text = f"""
     {chr(27)}[91m
-        ██████╗ ██╗  ██╗ █████╗ ██╗███╗   ██╗███████╗ █████╗ ██╗    ██╗
-        ██╔════╝██║  ██║██╔══██╗██║████╗  ██║██╔════╝██╔══██╗██║    ██║
-        ██║     ███████║███████║██║██╔██╗ ██║███████╗███████║██║ █╗ ██║
-        ██║     ██╔══██║██╔══██║██║██║╚██╗██║╚════██║██╔══██║██║███╗██║
-        ╚██████╗██║  ██║██║  ██║██║██║ ╚████║███████║██║  ██║╚███╔███╔╝
-        ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝ 
+              ██████╗ ██╗  ██╗ █████╗ ██╗███╗   ██╗███████╗ █████╗ ██╗    ██╗
+              ██╔════╝██║  ██║██╔══██╗██║████╗  ██║██╔════╝██╔══██╗██║    ██║
+              ██║     ███████║███████║██║██╔██╗ ██║███████╗███████║██║ █╗ ██║
+              ██║     ██╔══██║██╔══██║██║██║╚██╗██║╚════██║██╔══██║██║███╗██║
+              ╚██████╗██║  ██║██║  ██║██║██║ ╚████║███████║██║  ██║╚███╔███╔╝
+              ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝ 
 
-              ⚡ AUTOMATED NETWORK TESTING FRAMEWORK ⚡
+                    ⚡ AUTOMATED NETWORK TESTING FRAMEWORK ⚡
     {chr(27)}[0m{chr(27)}[93m
-                ────────────────────────────────────────
-                  [!] TARGET ACQUIRED - INITIATING SCAN
-                ────────────────────────────────────────
+                    ────────────────────────────────────────
+                      [!] TARGET ACQUIRED - INITIATING SCAN
+                    ────────────────────────────────────────
     {chr(27)}[0m
             """
-        print(banner_text)
+      
+        try:
+            import sys
+            print(banner_text)
+            sys.stdout.flush()
+        except (BlockingIOError, BrokenPipeError, OSError):
+            # Fallback to simple banner
+            try:
+                print("CHAINSAW - Network Security Scanner v2.0")
+                print("[!] Target Acquired - Initiating Scan")
+                sys.stdout.flush()
+            except:
+                pass  # Silent fallback
         
     def run_cmd_enhanced(self, cmd, timeout=30):
         """Enhanced command execution with better error handling"""
@@ -1145,7 +1201,7 @@ class CyberScanner:
         protocol = 'https' if port in [443, 8443] else 'http'
         
         for endpoint in API_ENDPOINTS:
-            cmd = f"curl -k -s -I {protocol}://{ip}:{port}{endpoint} --max-time 5"
+            cmd = f"curl -k -s -I {protocol}://{ip}:{port}{endpoint} --max-time 15"
             result = self.run_cmd_enhanced(cmd, timeout=10)
             if result['success'] and '200' in result['output']:
                 result['severity'] = 'HIGH'
@@ -1280,7 +1336,7 @@ class CyberScanner:
           fallbacks = config['fallback'] if isinstance(config['fallback'], list) else [config['fallback']]
           for fallback in fallbacks:
             processed_cmd = fallback.format(**replacements)
-            print(f"[*] Fallback: {processed_cmd}")
+#           print(f"[*] Fallback: {processed_cmd}")
             result = self.run_cmd_enhanced(processed_cmd)
             results.append(result)
             
