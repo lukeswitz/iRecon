@@ -17,79 +17,104 @@ import atexit
 
 
 def check_and_install_tools():
-  """Check for required tools and install if missing"""
-  
-  # Required tools mapping: command -> package_name
-  required_tools = {
-    'nmap': 'nmap',
-    'gobuster': 'gobuster', 
-    'nikto': 'nikto',
-    'feroxbuster': 'feroxbuster',
-    'smbclient': 'smbclient',
-    'enum4linux': 'enum4linux',
-    'crackmapexec': 'crackmapexec',
-    'evil-winrm': 'evil-winrm',
-    'testssl': 'testssl.sh',
-    'redis-cli': 'redis-tools',
-    'mysql': 'mysql-client',
-    'psql': 'postgresql-client',
-    'hydra': 'hydra'
-  }
-  
-  # Detect OS
-  system = platform.system().lower()
-  distro = None
-  
-  if system == 'linux':
-    try:
-      with open('/etc/os-release', 'r') as f:
-        content = f.read().lower()
-        if 'ubuntu' in content or 'debian' in content:
-          distro = 'debian'
-        elif 'centos' in content or 'rhel' in content or 'fedora' in content:
-          distro = 'redhat'
-        elif 'arch' in content:
-          distro = 'arch'
-    except:
-      distro = 'unknown'
+    """Check for required tools and install if missing"""
+    
+    # Tool aliases - check multiple possible command names
+    tool_aliases = {
+      'crackmapexec': ['crackmapexec', 'nxc', 'NetExec', 'netexec'],
+      'testssl': ['testssl', 'testssl.sh'],
+      'smbclient': ['smbclient', '/usr/bin/smbutil'],  # macOS alternative
+      'redis-cli': ['redis-cli', 'redis-client'],
+      'mysql': ['mysql', 'mysql-client'],
+      'psql': ['psql', 'postgresql-client']
+    }
+    
+    # Required tools mapping: command -> package_name
+    required_tools = {
+      'nmap': 'nmap',
+      'gobuster': 'gobuster', 
+      'nikto': 'nikto',
+      'feroxbuster': 'feroxbuster',
+      'smbclient': 'smbclient',
+      'enum4linux': 'enum4linux',
+      'crackmapexec': 'crackmapexec',  # Will be installed as nxc
+      'evil-winrm': 'evil-winrm',
+      'testssl': 'testssl',
+      'redis-cli': 'redis-tools',
+      'mysql': 'mysql-client',
+      'psql': 'postgresql-client',
+      'hydra': 'hydra'
+    }
+    
+    # Detect OS
+    system = platform.system().lower()
+    distro = None
+    
+    if system == 'linux':
+      try:
+        with open('/etc/os-release', 'r') as f:
+          content = f.read().lower()
+          if 'ubuntu' in content or 'debian' in content:
+            distro = 'debian'
+          elif 'centos' in content or 'rhel' in content or 'fedora' in content:
+            distro = 'redhat'
+          elif 'arch' in content:
+            distro = 'arch'
+      except:
+        distro = 'unknown'
+        
+    print(f"[*] Detected OS: {system} ({distro if distro else 'unknown'})")
+    
+    # Check for missing tools with alias support
+    missing_tools = []
+    found_tools = []
+    
+    for tool, package in required_tools.items():
+      aliases = tool_aliases.get(tool, [tool])
+      found = False
       
-  print(f"[*] Detected OS: {system} ({distro if distro else 'unknown'})")
-  
-  # Check for missing tools
-  missing_tools = []
-  for tool, package in required_tools.items():
-    if not shutil.which(tool):
-      missing_tools.append((tool, package))
+      for alias in aliases:
+        if shutil.which(alias):
+          found_tools.append(f"{tool} (found as '{alias}')")
+          found = True
+          break
+        
+      if not found:
+        missing_tools.append((tool, package))
+        
+    # Show what was found
+    if found_tools:
+      print(f"[+] Found tools: {found_tools}")
       
-  if not missing_tools:
-    print("[+] All required tools are installed!")
+    if not missing_tools:
+      print("[+] All required tools are installed!")
+      return True
+    
+    print(f"[!] Missing tools: {[tool for tool, _ in missing_tools]}")
+    
+    # Ask user permission
+    response = input("[?] Install missing tools? (y/N): ").lower().strip()
+    if response not in ['y', 'yes']:
+      print("[!] Continuing without installing tools (some scans may fail)")
+      return False
+    
+    # Install based on OS
+    if system == 'linux' and distro == 'debian':
+      install_debian_tools(missing_tools)
+    elif system == 'linux' and distro == 'redhat':
+      install_redhat_tools(missing_tools)
+    elif system == 'linux' and distro == 'arch':
+      install_arch_tools(missing_tools)
+    elif system == 'darwin':  # macOS
+      install_macos_tools(missing_tools)
+    else:
+      print(f"[!] Automatic installation not supported for {system} ({distro})")
+      print("[!] Please install tools manually:")
+      for tool, package in missing_tools:
+        print(f"    - {tool} ({package})")
+      return False
+    
     return True
-  
-  print(f"[!] Missing tools: {[tool for tool, _ in missing_tools]}")
-  
-  # Ask user permission
-  response = input("[?] Install missing tools? (y/N): ").lower().strip()
-  if response not in ['y', 'yes']:
-    print("[!] Continuing without installing tools (some scans may fail)")
-    return False
-  
-  # Install based on OS
-  if system == 'linux' and distro == 'debian':
-    install_debian_tools(missing_tools)
-  elif system == 'linux' and distro == 'redhat':
-    install_redhat_tools(missing_tools)
-  elif system == 'linux' and distro == 'arch':
-    install_arch_tools(missing_tools)
-  elif system == 'darwin':  # macOS
-    install_macos_tools(missing_tools)
-  else:
-    print(f"[!] Automatic installation not supported for {system} ({distro})")
-    print("[!] Please install tools manually:")
-    for tool, package in missing_tools:
-      print(f"    - {tool} ({package})")
-    return False
-  
-  return True
 
 def install_debian_tools(missing_tools):
   """Install tools on Debian/Ubuntu systems"""
@@ -289,6 +314,136 @@ def install_macos_tools(missing_tools):
         print(f"    • {tool}: {source}")
         
     print("\n[+] macOS tool installation complete!")
+    
+def install_seclists_macos():
+    """Install SecLists wordlists to /usr/share/wordlists on macOS"""
+    seclists_path = "/usr/share/wordlists/seclists"
+    
+    # Check if already installed
+    if os.path.exists(seclists_path):
+      print(f"[+] SecLists already installed at {seclists_path}")
+      return True
+    
+    print("[*] Installing SecLists wordlists...")
+    
+    try:
+      # Create wordlists directory structure
+      os.system("sudo mkdir -p /usr/share/wordlists")
+      
+      # Clone SecLists
+      clone_cmd = f"sudo git clone https://github.com/danielmiessler/SecLists.git {seclists_path}"
+      print(f"[*] Running: {clone_cmd}")
+      result = os.system(clone_cmd)
+      
+      if result == 0:
+        # Set proper permissions
+        os.system(f"sudo chmod -R 755 {seclists_path}")
+        os.system(f"sudo chown -R root:wheel {seclists_path}")
+        
+        print(f"[+] SecLists installed successfully to {seclists_path}")
+        
+        # Verify key wordlists exist
+        key_lists = [
+          f"{seclists_path}/Discovery/Web-Content/directory-list-2.3-medium.txt",
+          f"{seclists_path}/Discovery/Web-Content/raft-large-directories.txt",
+          f"{seclists_path}/Discovery/Web-Content/api/api-endpoints.txt",
+          f"{seclists_path}/Discovery/DNS/subdomains-top1million-5000.txt"
+        ]
+        
+        missing_lists = [lst for lst in key_lists if not os.path.exists(lst)]
+        if missing_lists:
+          print(f"[!] Some wordlists missing: {missing_lists}")
+        else:
+          print("[+] All key wordlists verified!")
+          
+        return True
+      else:
+        print("[!] Failed to clone SecLists")
+        return False
+      
+    except Exception as e:
+      print(f"[!] Error installing SecLists: {str(e)}")
+      return False
+  
+def setup_macos_wordlists():
+    """Setup wordlist paths for macOS"""
+    global DEFAULT_WORDLISTS
+    
+    # Try to install SecLists if not present
+    seclists_installed = install_seclists_macos()
+    
+    if seclists_installed:
+      # Update wordlist paths to use SecLists
+      DEFAULT_WORDLISTS.update({
+        'dirbuster': '/usr/share/wordlists/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt',
+        'feroxbuster': '/usr/share/wordlists/seclists/Discovery/Web-Content/raft-large-directories.txt',
+        'api': '/usr/share/wordlists/seclists/Discovery/Web-Content/api/api-endpoints.txt',
+        'subdomains': '/usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt',
+        'snmp': '/usr/share/wordlists/seclists/Discovery/SNMP/common-snmp-community-strings.txt',
+        'users': '/usr/share/wordlists/seclists/Usernames/top-usernames-shortlist.txt',
+        'passwords': '/usr/share/wordlists/seclists/Passwords/Common-Credentials/10-million-password-list-top-100.txt'
+      })
+      print("[+] Updated wordlist paths to use SecLists")
+    else:
+      # Fallback to basic wordlists
+      print("[!] Using fallback wordlists...")
+      create_basic_wordlists()
+    
+def create_basic_wordlists():
+    """Create basic wordlists if SecLists not available"""
+    wordlist_dir = os.path.expanduser("~/.chainsaw/wordlists")
+    os.makedirs(wordlist_dir, exist_ok=True)
+    
+    # Create basic directory list
+    basic_dirs = [
+      'admin', 'api', 'app', 'backup', 'bin', 'cgi-bin', 'config', 'data',
+      'db', 'debug', 'dev', 'docs', 'download', 'files', 'images', 'inc',
+      'include', 'js', 'lib', 'log', 'logs', 'old', 'private', 'public',
+      'scripts', 'src', 'static', 'temp', 'test', 'tmp', 'upload', 'uploads',
+      'var', 'web', 'www', '.git', '.env', 'robots.txt', 'sitemap.xml'
+    ]
+    
+    basic_dir_file = os.path.join(wordlist_dir, 'basic-directories.txt')
+    with open(basic_dir_file, 'w') as f:
+      f.write('\n'.join(basic_dirs))
+      
+    # Create basic API endpoints
+    basic_api = [
+      '/api/v1/', '/api/v2/', '/api/', '/graphql', '/swagger/', '/health',
+      '/status', '/metrics', '/admin/', '/debug/', '/dev/', '/.well-known/',
+      '/actuator/', '/management/'
+    ]
+    
+    basic_api_file = os.path.join(wordlist_dir, 'basic-api.txt')
+    with open(basic_api_file, 'w') as f:
+      f.write('\n'.join(basic_api))
+      
+    # Update DEFAULT_WORDLISTS to use basic lists
+    DEFAULT_WORDLISTS.update({
+      'dirbuster': basic_dir_file,
+      'feroxbuster': basic_dir_file,
+      'api': basic_api_file,
+      'snmp': basic_dir_file,  # Fallback
+      'users': basic_dir_file,  # Fallback
+      'passwords': basic_dir_file  # Fallback
+    })
+    
+    print(f"[+] Created basic wordlists in {wordlist_dir}")
+  
+def check_wordlists():
+    """Check if wordlists exist and are accessible"""
+    missing_lists = []
+    
+    for name, path in DEFAULT_WORDLISTS.items():
+      if not os.path.exists(path):
+        missing_lists.append((name, path))
+        
+    if missing_lists:
+      print(f"[!] Missing wordlists: {[name for name, _ in missing_lists]}")
+      return False
+    else:
+      print("[+] All wordlists accessible!")
+      return True
     
 def create_docker_wrappers():
     """Create wrapper scripts for Docker-based tools"""
@@ -629,17 +784,16 @@ ENHANCED_SERVICE_CHECKS = {
     },
     
     22: {
-        'name': 'SSH',
-        'risk_base': 5.0,
-        'auth': 'ssh {user}@{ip} -o PasswordAuthentication=yes -o ConnectTimeout=10',
-        'enum': [
-            'ssh -v {user}@{ip} -o ConnectTimeout=10',
-            'nmap --script=ssh-* -p 22 {ip}',
-            'ssh-keyscan -p 22 {ip}'
-        ],
-        'fallback': [
-            'hydra -L {users} -P {passwords} ssh://{ip} -t 4 -f'
-        ]
+      'name': 'SSH',
+      'risk_base': 6.0,
+      'auth': 'ssh {user}@{ip} -o PasswordAuthentication=yes -o ConnectTimeout=10',
+      'enum': [
+        'nmap --script=ssh-* -p 22 {ip}',
+        'ssh-keyscan -p 22 {ip}',
+      ],
+      'fallback': [
+        'nc -v {ip} 22'
+      ]
     },
     
     # Web services
@@ -659,16 +813,15 @@ ENHANCED_SERVICE_CHECKS = {
     
     443: {
         'name': 'HTTPS',
-        'risk_base': 2.0,
-        'enum': [
-            'testssl.sh {ip} --fast',
-            'gobuster dir -u https://{ip} -w {dirbuster_wordlist} -k -t 50',
-            'sslscan {ip}:443',
-            'curl -I https://{ip} -k --max-time 5'
-        ],
-        'fallback': [
-            'openssl s_client -connect {ip}:443 -servername {ip}'
-        ]
+          'risk_base': 2.0,
+          'enum': [
+              'testssl.sh --fast https://{ip}:443',
+              'gobuster dir -u https://{ip} -w {dirbuster_wordlist} -k -t 50',
+              'curl -I https://{ip} -k --max-time 5'
+            ],
+            'fallback': [
+              'nmap --script=ssl-* -p 443 {ip}'  # Fallback if testssl.sh fails
+            ]
     },
     
     # Alternative HTTP ports
@@ -700,10 +853,10 @@ ENHANCED_SERVICE_CHECKS = {
         'risk_base': 7.0,
         'anon': [
             'smbclient -L //{ip}/ -N --timeout=10',
-            'crackmapexec smb {ip} --shares -u "" -p "" --timeout 10',
+            'nxc smb {ip} --shares -u "" -p "" --timeout 10',
             'nmap --script=smb-os-discovery -p 445 {ip}'
         ],
-        'auth': 'crackmapexec smb {ip} -u {user} -p {pass} --shares',
+        'auth': 'nxc smb {ip} -u {user} -p {pass} --shares',
         'enum': [
             'enum4linux -a {ip}',
             'nmap --script=smb-* -p 445 {ip}',
@@ -1087,7 +1240,7 @@ class CyberScanner:
         config = ENHANCED_SERVICE_CHECKS.get(port, GENERIC_CHECKS)
         results = []
         
-        print(f"[*] Testing port {port} ({config.get('name', 'Unknown')})...")
+#       print(f"[*] Testing port {port} ({config.get('name', 'Unknown')})...")
         
         # Add API testing for web services
         if port in [80, 443, 8080, 8443]:
@@ -1106,7 +1259,7 @@ class CyberScanner:
         # Run standard checks with enhanced error handling
         for check_type in ['anon', 'auth', 'enum']:
           if check_type in config:
-            print(f"[*] Running {check_type} checks on port {port}...")
+#           print(f"[*] Running {check_type} checks on port {port}...")
             checks = config[check_type] if isinstance(config[check_type], list) else [config[check_type]]
             
             with ThreadPoolExecutor(max_workers=5) as executor:
@@ -1116,29 +1269,14 @@ class CyberScanner:
                   print(f"[!] Skipping auth check (no credentials): {check}")
                   continue
                 processed_cmd = check.format(**replacements)
-                print(f"[*] Executing: {processed_cmd}")  # ADD THIS DEBUG LINE
+                
                 future = executor.submit(self.run_cmd_enhanced, processed_cmd)
                 futures.append(future)
                 
-              for future in as_completed(futures):
-                try:
-                  result = future.result(timeout=30)
-                  if result['success']:
-                    print(f"[+] Command succeeded: {result['command'][:50]}...")
-                  else:
-                    print(f"[!] Command failed: {result['command'][:50]}...")
-                  results.append(result)
-                except Exception as e:
-                  print(f"[!] Tool execution error: {str(e)}")
-                  results.append({
-                    'command': 'unknown',
-                    'output': f'Error: {str(e)}',
-                    'success': False
-                  })
                   
         # Run fallbacks if no successes
         if 'fallback' in config and not any(res.get('success', False) for res in results):
-          print(f"[*] Running fallback tools for port {port}...")
+#         print(f"[*] Running fallback tools for port {port}...")
           fallbacks = config['fallback'] if isinstance(config['fallback'], list) else [config['fallback']]
           for fallback in fallbacks:
             processed_cmd = fallback.format(**replacements)
@@ -1592,6 +1730,11 @@ done
 def main():
     # Check and install tools first
     check_and_install_tools()
+    
+    # Setup wordlists for macOS
+    if platform.system().lower() == 'darwin':
+      setup_macos_wordlists()
+      check_wordlists()
 
     parser = argparse.ArgumentParser(
         description='Chainsaw Network Penetration Testing Tool',
