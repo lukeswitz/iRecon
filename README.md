@@ -20,7 +20,7 @@ git clone https://github.com/lukeswitz/iRecon.git && cd iRecon && chmod +x chain
 ```
 
 ## Usage
-`bashpython3 chainsaw.py <target> [options]`
+`python3 chainsaw.py <target> [options]`
 
 ### Examples
 ```bash
