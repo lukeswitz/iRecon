@@ -25,7 +25,7 @@ def check_and_install_tools():
     'enum4linux': 'enum4linux',
     'crackmapexec': 'crackmapexec',
     'evil-winrm': 'evil-winrm',
-    'testssl.sh': 'testssl.sh',
+    'testssl': 'testssl.sh',
     'redis-cli': 'redis-tools',
     'mysql': 'mysql-client',
     'psql': 'postgresql-client',
