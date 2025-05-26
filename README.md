@@ -20,24 +20,7 @@
 ```bash
 git clone https://github.com/lukeswitz/iRecon.git && cd iRecon && chmod +x chainsaw.py
 ```
-## Tools Used
 
-This script utilizes the following external tools:
-
-*   **nmap**
-*   **gobuster**
-*   **nikto**
-*   **feroxbuster**
-*   **smbclient**
-*   **enum4linux**
-*   **crackmapexec**
-*   **nxc**
-*   **evil-winrm**
-*   **testssl**
-*   **redis-cli**
-*   **mysql**
-*   **psql**
-*   **hydra**
 
 ## Usage
 `python3 chainsaw.py <target> [options]`
