@@ -2,8 +2,9 @@
 
 ### Tooling
 
-1. **[iRecon](#irecon) - `nmap` scan, the basis of chainsaw.** 
-2. **[CHAINSAW](#chainsaw) - Advanced enumeration & report**
+1. **[iRecon](#irecon)** - `nmap` scan, the basis of chainsaw. 
+2. **[Chainsaw](#chainsaw)** - Heavy recon, monitoring & cyberpunk report.
+3. **[Chainsaw-ng](#chainsaw-ng)** - Enumeration, escalation & professional report. 
 
 # CHAINSAW
 
@@ -51,7 +52,6 @@ python3 chainsaw.py site.com --integrations discord_notify --discord-webhook "UR
 - Multi-platform notifications and SIEM integration
 
 
-
 ## Output
 
 - Interactive HTML reports with animations
@@ -60,6 +60,25 @@ python3 chainsaw.py site.com --integrations discord_notify --discord-webhook "UR
 - Create a script to run as a continuous monitor using 
 ---
 
+# Chainsaw-ng
+Gets to the findings in a clear concise manner. Use with or without credentials (- u username -p password flags)
+
+## Features 
+Uses the same tooling as the first. Packed with domain extraction, service enumeration and attack vector hints. 
+
+### Report
+<img src="https://github.com/user-attachments/assets/c6246643-2f0d-4057-bcdb-804caafd9c02" width="70%" align="center">
+
+### Pathfinding
+
+<img src="https://github.com/user-attachments/assets/6e45b0b9-017b-4e6e-9f9d-f61b52bc2e2a" width="90%" align="center">
+
+
+- *Note: No continuous monitoring/webhooks*
+  
+
+
+---
 # iRecon
 
 iRecon is an automated Nmap-based reconnaissance script designed to speed up the initial enumeration phase during CTFs or real-world pentests. It's especially useful for platforms like Hack The Box, where time and efficiency are key.
